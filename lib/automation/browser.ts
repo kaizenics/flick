@@ -56,7 +56,14 @@ export async function launchBrowser(
   return { browser, context };
 }
 
+// Global multiplier applied to every randomDelay call. 1.0 = normal,
+// 0.3 ≈ fast, 0 ≈ no delay (bot-obvious; use only for local debug).
+let delayScale = 1;
+export function setDelayScale(scale: number) {
+  delayScale = Math.max(0, scale);
+}
+
 export function randomDelay(minMs = 800, maxMs = 2400) {
-  const ms = Math.floor(minMs + Math.random() * (maxMs - minMs));
+  const ms = Math.floor((minMs + Math.random() * (maxMs - minMs)) * delayScale);
   return new Promise<void>((r) => setTimeout(r, ms));
 }

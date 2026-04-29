@@ -37,11 +37,12 @@ export function accountSwitcherTrigger(page: Page) {
   ]);
 }
 
-/** "See all profiles" / profile picker entry inside the account menu. */
+/** "See all profiles" / "See all Pages" entry inside the account menu. */
 export function seeAllProfiles(page: Page) {
   return firstVisible(page, [
-    (p) => p.getByRole("link", { name: /see all profiles/i }),
-    (p) => p.getByText(/see all profiles/i),
+    (p) => p.getByRole("button", { name: /see all (profiles|pages)/i }),
+    (p) => p.getByRole("link", { name: /see all (profiles|pages)/i }),
+    (p) => p.getByText(/see all (profiles|pages)/i),
     (p) => p.getByRole("menuitem", { name: /switch profile/i }),
   ]);
 }
@@ -74,6 +75,27 @@ export function alreadyFollowing(page: Page) {
     [
       (p) => p.getByRole("button", { name: /^following$/i }),
       (p) => p.locator('[aria-label="Following" i]'),
+    ],
+    1500,
+  );
+}
+
+/** A "Like" button on a Page (fallback when Follow isn't exposed). */
+export function likeButton(page: Page) {
+  return firstVisible(page, [
+    (p) => p.getByRole("button", { name: /^like$/i }),
+    (p) => p.locator('div[role="button"][aria-label="Like" i]'),
+    (p) => p.locator('[aria-label="Like" i]'),
+  ]);
+}
+
+/** Already-liked indicator. */
+export function alreadyLiked(page: Page) {
+  return firstVisible(
+    page,
+    [
+      (p) => p.getByRole("button", { name: /^liked$/i }),
+      (p) => p.locator('[aria-label="Liked" i]'),
     ],
     1500,
   );

@@ -21,6 +21,8 @@ export default function Dashboard() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [busy, setBusy] = useState(false);
   const [newSource, setNewSource] = useState("");
+  const [headed, setHeaded] = useState(false);
+  const [fast, setFast] = useState(false);
   const logBoxRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -73,7 +75,6 @@ export default function Dashboard() {
           "already-running": "A run is already in progress.",
           "no-session": "No saved Facebook session — click Login first.",
           "no-target": "Set the Target Page URL first.",
-          "no-sources": "Add at least one Source Page name.",
           "not-running": "Nothing is running.",
         };
         alert(reasonMap[data.reason ?? ""] ?? `Request failed (${res.status})`);
@@ -159,9 +160,13 @@ export default function Dashboard() {
         </section>
 
         <section className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-zinc-500">
-            Source Pages (your owned Pages — each will follow the target)
+          <h2 className="mb-1 text-sm font-semibold uppercase tracking-wider text-zinc-500">
+            Source Pages (optional)
           </h2>
+          <p className="mb-3 text-xs text-zinc-500">
+            Leave empty to auto-discover all owned Pages from the logged-in account.
+            Add names manually only to restrict the run to specific Pages.
+          </p>
           <div className="mb-3 flex gap-2">
             <input
               className="flex-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
@@ -195,10 +200,15 @@ export default function Dashboard() {
           </ul>
         </section>
 
-        <section className="flex gap-2">
+        <section className="flex items-center gap-3">
           <button
             disabled={busy || status?.running || !status?.hasSession}
-            onClick={() => post("/api/automation/start", { headless: true })}
+            onClick={() =>
+              post("/api/automation/start", {
+                headless: !headed,
+                speed: fast ? "fast" : "normal",
+              })
+            }
             className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
           >
             Start
@@ -210,6 +220,22 @@ export default function Dashboard() {
           >
             Stop
           </button>
+          <label className="ml-2 flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
+            <input
+              type="checkbox"
+              checked={headed}
+              onChange={(e) => setHeaded(e.target.checked)}
+            />
+            Show browser (headed mode)
+          </label>
+          <label className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
+            <input
+              type="checkbox"
+              checked={fast}
+              onChange={(e) => setFast(e.target.checked)}
+            />
+            Fast mode
+          </label>
         </section>
 
         <section className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">

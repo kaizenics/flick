@@ -6,7 +6,15 @@ export type LogEntry = {
   level: "info" | "warn" | "error";
   source?: string; // source page name
   target?: string; // target page url
-  status?: "followed" | "already-following" | "not-supported" | "error" | "started" | "stopped";
+  status?:
+    | "followed"
+    | "liked"
+    | "already-following"
+    | "already-liked"
+    | "not-supported"
+    | "error"
+    | "started"
+    | "stopped";
   message: string;
 };
 
