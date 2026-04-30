@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "FB Automation",
+  title: "Lifty",
   description:
-    "Automate your Facebook interactions with ease. Schedule posts, manage comments, and analyze performance all in one place.",
+    "Lift every Page, on autopilot. Lifty orchestrates Facebook engagement across your accounts from one quiet, visual control room.",
 };
 
 export default function RootLayout({
