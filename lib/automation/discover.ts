@@ -8,10 +8,21 @@ const NOISE_RE =
 
 async function scrapeTiles(page: Page): Promise<string[]> {
   return await page.evaluate(() => {
-    const dialog =
-      document.querySelector('[role="dialog"]') ??
-      document.querySelector('[role="menu"]') ??
-      document.body;
+    // FB sometimes renders multiple [role="dialog"] containers (Messenger,
+    // stale, off-screen). Pick the largest *visible* one — that's the
+    // active profile switcher.
+    const visibleDialogs = Array.from(
+      document.querySelectorAll<HTMLElement>('[role="dialog"], [role="menu"]'),
+    ).filter((d) => {
+      const r = d.getBoundingClientRect();
+      return r.width > 100 && r.height > 100;
+    });
+    visibleDialogs.sort((a, b) => {
+      const ra = a.getBoundingClientRect();
+      const rb = b.getBoundingClientRect();
+      return rb.width * rb.height - ra.width * ra.height;
+    });
+    const dialog = visibleDialogs[0] ?? document.body;
     const imgs = Array.from(dialog.querySelectorAll<HTMLImageElement>("img, svg image"));
     const out: string[] = [];
     for (const img of imgs) {
@@ -94,8 +105,39 @@ export async function discoverOwnedPages(page: Page): Promise<string[]> {
 
   appendLog({
     level: "info",
-    message: `Detected ${tiles.length} tile(s) in switcher`,
+    message: `Detected ${tiles.length} tile(s) in switcher: ${JSON.stringify(
+      tiles.slice(0, 30),
+    )}`,
   });
+
+  // If we got nothing, dump the page so we can see what FB actually rendered.
+  if (tiles.length === 0) {
+    try {
+      const fs = await import("node:fs/promises");
+      const path = await import("node:path");
+      const { accountContext } = await import("./browser");
+      const accId = accountContext.getStore() ?? "default";
+      const debugDir = path.join(process.cwd(), "data", "accounts", accId, "debug");
+      await fs.mkdir(debugDir, { recursive: true });
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      await page
+        .screenshot({
+          path: path.join(debugDir, `discover-empty-${stamp}.png`),
+          fullPage: true,
+        })
+        .catch(() => {});
+      await fs.writeFile(
+        path.join(debugDir, `discover-empty-${stamp}.html`),
+        await page.content().catch(() => ""),
+      );
+      appendLog({
+        level: "warn",
+        message: `Scrape returned 0 — saved discover-empty-${stamp}.{png,html} to inspect`,
+      });
+    } catch {
+      // best-effort debug
+    }
+  }
 
   await page.keyboard.press("Escape").catch(() => {});
 

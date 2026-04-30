@@ -1,4 +1,7 @@
 {
-  "targetUrl": "https://www.facebook.com/gocraftiv/",
+  "targetUrl": "https://www.facebook.com/gocraftiv",
+  "targetUrls": [
+    "https://www.facebook.com/gocraftiv"
+  ],
   "sources": []
 }
