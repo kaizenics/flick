@@ -9,11 +9,14 @@ export type SourcePage = {
 };
 
 export type Config = {
+  /** Primary target URL (kept for back-compat — equals targetUrls[0]). */
   targetUrl: string;
+  /** Full list of targets to follow during a run. */
+  targetUrls: string[];
   sources: SourcePage[];
 };
 
-const DEFAULT: Config = { targetUrl: "", sources: [] };
+const DEFAULT: Config = { targetUrl: "", targetUrls: [], sources: [] };
 
 async function ensure(id: string) {
   await fs.mkdir(accountDir(id), { recursive: true });
@@ -43,8 +46,10 @@ export async function readConfig(accountId: string = DEFAULT_ACCOUNT_ID): Promis
     ("sourcePageName" in parsed || "targets" in parsed)
   ) {
     const old = parsed as { sourcePageName?: string; targets?: { url?: string }[] };
+    const t0 = old.targets?.[0]?.url ?? "";
     const migrated: Config = {
-      targetUrl: old.targets?.[0]?.url ?? "",
+      targetUrl: t0,
+      targetUrls: t0 ? [t0] : [],
       sources: old.sourcePageName
         ? [{ id: crypto.randomUUID(), name: old.sourcePageName }]
         : [],
@@ -53,7 +58,15 @@ export async function readConfig(accountId: string = DEFAULT_ACCOUNT_ID): Promis
     return migrated;
   }
 
-  return { ...DEFAULT, ...(parsed as Config) };
+  // Merge defaults + back-fill targetUrls from targetUrl if missing.
+  const cfg = { ...DEFAULT, ...(parsed as Partial<Config>) };
+  if ((!cfg.targetUrls || cfg.targetUrls.length === 0) && cfg.targetUrl) {
+    cfg.targetUrls = [cfg.targetUrl];
+  }
+  if (!cfg.targetUrl && cfg.targetUrls?.[0]) {
+    cfg.targetUrl = cfg.targetUrls[0];
+  }
+  return cfg;
 }
 
 export async function writeConfig(
