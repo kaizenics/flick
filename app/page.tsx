@@ -15,6 +15,13 @@ const tools = [
     available: true,
   },
   {
+    href: "/flow",
+    title: "Automation Flow (xyflow)",
+    description:
+      "Node-based view of the engagement pipeline with live execution highlighting.",
+    available: true,
+  },
+  {
     href: "/page-creation",
     title: "FB Page Creation Automation",
     description:

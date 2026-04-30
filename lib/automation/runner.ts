@@ -46,7 +46,10 @@ export async function startRun(
   if (!(await hasStorageState(accountId))) return { ok: false, reason: "no-session" as const };
 
   const cfg = await readConfig(accountId);
-  if (!cfg.targetUrl) return { ok: false, reason: "no-target" as const };
+  const targets = (cfg.targetUrls?.length ? cfg.targetUrls : [cfg.targetUrl]).filter(
+    (u) => u && u.length > 0,
+  );
+  if (targets.length === 0) return { ok: false, reason: "no-target" as const };
 
   state.running = true;
   state.startedAt = new Date().toISOString();
@@ -58,15 +61,17 @@ export async function startRun(
   // when started together. Each new run resets it to its own preference.
   setDelayScale(opts.speed === "fast" ? 0.15 : 1);
 
+  const targetSummary =
+    targets.length === 1 ? `target="${targets[0]}"` : `targets=${targets.length}`;
   appendLog(
     {
       level: "info",
       status: "started",
-      target: cfg.targetUrl,
+      target: targets[0],
       message:
         cfg.sources.length > 0
-          ? `Run started — target="${cfg.targetUrl}", sources=${cfg.sources.length}`
-          : `Run started — target="${cfg.targetUrl}", auto-discovering sources`,
+          ? `Run started — ${targetSummary}, sources=${cfg.sources.length}`
+          : `Run started — ${targetSummary}, auto-discovering sources`,
     },
     accountId,
   );
@@ -145,39 +150,53 @@ export async function startRun(
           {
             level: "info",
             source: source.name,
-            target: cfg.targetUrl,
-            message: `${progress} Switched. Navigating to target and following…`,
+            message: `${progress} Switched. Visiting ${targets.length} target(s)…`,
           },
           accountId,
         );
 
-        try {
-          const result = await followPage(page, cfg.targetUrl);
-          const success = result.status === "followed" || result.status === "liked";
-          appendLog(
-            {
-              level: success ? "info" : "warn",
-              status: result.status,
-              source: source.name,
-              target: cfg.targetUrl,
-              message:
-                result.status === "not-supported"
-                  ? `${progress} Skipped: ${result.reason}`
-                  : `${progress} ${result.status}`,
-            },
-            accountId,
-          );
-        } catch (err) {
-          appendLog(
-            {
-              level: "error",
-              status: "error",
-              source: source.name,
-              target: cfg.targetUrl,
-              message: `${progress} ${err instanceof Error ? err.message : String(err)}`,
-            },
-            accountId,
-          );
+        for (let t = 0; t < targets.length; t++) {
+          if (signal.aborted) break;
+          const target = targets[t];
+          const tProgress =
+            targets.length > 1 ? `${progress}(${t + 1}/${targets.length})` : progress;
+
+          try {
+            const result = await followPage(page, target);
+            const success = result.status === "followed" || result.status === "liked";
+            appendLog(
+              {
+                level: success ? "info" : "warn",
+                status: result.status,
+                source: source.name,
+                target,
+                message:
+                  result.status === "not-supported"
+                    ? `${tProgress} Skipped: ${result.reason}`
+                    : `${tProgress} ${result.status}`,
+              },
+              accountId,
+            );
+          } catch (err) {
+            appendLog(
+              {
+                level: "error",
+                status: "error",
+                source: source.name,
+                target,
+                message: `${tProgress} ${err instanceof Error ? err.message : String(err)}`,
+              },
+              accountId,
+            );
+          }
+
+          // Brief pause between targets within the same source identity.
+          if (t < targets.length - 1) {
+            await randomDelay(
+              opts.speed === "fast" ? 200 : 1500,
+              opts.speed === "fast" ? 600 : 4000,
+            );
+          }
         }
 
         await randomDelay(

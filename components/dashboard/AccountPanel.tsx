@@ -35,7 +35,7 @@ type LogEntry = {
 
 type Status = { running: boolean; startedAt: string | null; hasSession: boolean };
 type SourcePage = { id: string; name: string; note?: string };
-type Config = { targetUrl: string; sources: SourcePage[] };
+type Config = { targetUrl: string; targetUrls: string[]; sources: SourcePage[] };
 
 export type ProxyConfig = {
   server: string;
@@ -62,6 +62,7 @@ export default function AccountPanel({
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [busy, setBusy] = useState(false);
   const [newSource, setNewSource] = useState("");
+  const [newTarget, setNewTarget] = useState("");
   const [headed, setHeaded] = useState(false);
   const [fast, setFast] = useState(true);
   const logBoxRef = useRef<HTMLDivElement>(null);
@@ -147,6 +148,26 @@ export default function AccountPanel({
   const removeSource = (id: string) => {
     if (!config) return;
     saveConfig({ ...config, sources: config.sources.filter((s) => s.id !== id) });
+  };
+
+  const addTarget = () => {
+    if (!config) return;
+    const url = newTarget.trim();
+    if (!url) return;
+    const next = [...(config.targetUrls ?? []), url];
+    saveConfig({ ...config, targetUrls: next, targetUrl: next[0] });
+    setNewTarget("");
+  };
+  const removeTarget = (i: number) => {
+    if (!config) return;
+    const next = (config.targetUrls ?? []).filter((_, idx) => idx !== i);
+    saveConfig({ ...config, targetUrls: next, targetUrl: next[0] ?? "" });
+  };
+  const updateTargetAt = (i: number, v: string) => {
+    if (!config) return;
+    const next = [...(config.targetUrls ?? [])];
+    next[i] = v;
+    saveConfig({ ...config, targetUrls: next, targetUrl: next[0] ?? "" });
   };
 
   // Proxy editor state
@@ -319,16 +340,46 @@ export default function AccountPanel({
 
       <section className="mb-3 rounded border border-zinc-200 p-3 dark:border-zinc-800">
         <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">
-          Target Page
+          Target Pages
         </div>
-        <input
-          className="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-          placeholder="https://www.facebook.com/..."
-          value={config?.targetUrl ?? ""}
-          onChange={(e) =>
-            config && saveConfig({ ...config, targetUrl: e.target.value })
-          }
-        />
+        <p className="mb-2 text-xs text-zinc-500">
+          Each owned Page will follow / like every target listed here.
+        </p>
+        <div className="mb-2 flex gap-2">
+          <input
+            className="flex-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            placeholder="https://www.facebook.com/..."
+            value={newTarget}
+            onChange={(e) => setNewTarget(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addTarget()}
+          />
+          <button
+            onClick={addTarget}
+            className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900"
+          >
+            Add
+          </button>
+        </div>
+        <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
+          {(config?.targetUrls ?? []).map((u, i) => (
+            <li key={i} className="flex items-center gap-2 py-1.5">
+              <input
+                className="flex-1 rounded-md border border-zinc-300 bg-white px-3 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                value={u}
+                onChange={(e) => updateTargetAt(i, e.target.value)}
+              />
+              <button
+                onClick={() => removeTarget(i)}
+                className="text-xs text-red-600 hover:underline"
+              >
+                remove
+              </button>
+            </li>
+          ))}
+          {(config?.targetUrls ?? []).length === 0 && (
+            <li className="py-1.5 text-xs text-zinc-500">No targets yet.</li>
+          )}
+        </ul>
       </section>
 
       <section className="mb-3 rounded border border-zinc-200 p-3 dark:border-zinc-800">

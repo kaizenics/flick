@@ -16,9 +16,14 @@ export async function PUT(req: Request) {
   const accountId = url.searchParams.get("account") ?? DEFAULT_ACCOUNT_ID;
   const body = (await req.json()) as Partial<Config>;
   const current = await readConfig(accountId);
+  const targetUrls = Array.isArray(body.targetUrls)
+    ? body.targetUrls.map((u) => String(u).trim()).filter((u) => u.length > 0)
+    : typeof body.targetUrl === "string"
+      ? [body.targetUrl.trim()].filter((u) => u.length > 0)
+      : current.targetUrls;
   const next: Config = {
-    targetUrl:
-      typeof body.targetUrl === "string" ? body.targetUrl.trim() : current.targetUrl,
+    targetUrl: targetUrls[0] ?? "",
+    targetUrls,
     sources: Array.isArray(body.sources)
       ? body.sources.map((s) => ({
           id: s.id ?? crypto.randomUUID(),

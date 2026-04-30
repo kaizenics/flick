@@ -46,3 +46,12 @@
 {"ts":"2026-04-30T01:48:07.724Z","level":"info","source":"Synt Studios","target":"https://www.facebook.com/gocraftiv/","message":"[14/14] Switched. Navigating to target and following…"}
 {"ts":"2026-04-30T01:48:29.783Z","level":"warn","status":"not-supported","source":"Synt Studios","target":"https://www.facebook.com/gocraftiv/","message":"[14/14] Skipped: Neither Follow nor Like button visible"}
 {"ts":"2026-04-30T01:48:30.186Z","level":"info","status":"stopped","message":"Run finished"}
+{"ts":"2026-04-30T09:17:18.782Z","level":"info","status":"started","target":"https://www.facebook.com/gocraftiv/","message":"Run started — target=\"https://www.facebook.com/gocraftiv/\", auto-discovering sources"}
+{"ts":"2026-04-30T09:17:24.993Z","level":"info","status":"stopped","message":"Stop requested"}
+{"ts":"2026-04-30T09:17:29.855Z","level":"info","status":"stopped","message":"Stop requested"}
+{"ts":"2026-04-30T09:17:30.062Z","level":"info","status":"stopped","message":"Stop requested"}
+{"ts":"2026-04-30T09:17:30.266Z","level":"info","status":"stopped","message":"Stop requested"}
+{"ts":"2026-04-30T09:17:30.454Z","level":"info","status":"stopped","message":"Stop requested"}
+{"ts":"2026-04-30T09:17:54.248Z","level":"info","message":"Detected 0 tile(s) in switcher"}
+{"ts":"2026-04-30T09:17:54.257Z","level":"error","message":"No Pages detected — open data/accounts/<id>/debug to inspect what FB rendered"}
+{"ts":"2026-04-30T09:17:54.357Z","level":"info","status":"stopped","message":"Run finished"}

@@ -15,76 +15,68 @@ import { appendLog } from "../logs";
  * register a switch (no nav), the caller will detect the URL didn't
  * change.
  */
+/**
+ * Mark the visible profile-switcher dialog so we can target it
+ * unambiguously. FB sometimes leaves stale dialog DOM around, and
+ * `[role="dialog"]:visible` alone can match a Messenger panel.
+ *
+ * We tag the largest visible dialog with a data attribute, then use
+ * that attribute as the click scope.
+ */
+async function tagSwitcherDialog(page: Page): Promise<boolean> {
+  return await page.evaluate(() => {
+    const dialogs = Array.from(
+      document.querySelectorAll<HTMLElement>('[role="dialog"]'),
+    ).filter((d) => {
+      const r = d.getBoundingClientRect();
+      return r.width > 100 && r.height > 100;
+    });
+    if (dialogs.length === 0) return false;
+    dialogs.sort((a, b) => {
+      const ra = a.getBoundingClientRect();
+      const rb = b.getBoundingClientRect();
+      return rb.width * rb.height - ra.width * ra.height;
+    });
+    document
+      .querySelectorAll("[data-fbauto-switcher]")
+      .forEach((el) => el.removeAttribute("data-fbauto-switcher"));
+    dialogs[0].setAttribute("data-fbauto-switcher", "1");
+    return true;
+  });
+}
+
 async function clickTileByName(page: Page, pageName: string): Promise<boolean> {
-  const deadline = Date.now() + 6000;
-  while (Date.now() < deadline) {
-    // Locate the row's bounding box in-page — search the WHOLE document,
-    // pick a row-shaped element whose first innerText line matches the
-    // name. We don't trust [role="dialog"] scoping because FB renders
-    // multiple dialog containers.
-    const box = await page.evaluate((name) => {
-      const lower = name.toLowerCase();
+  if (!(await tagSwitcherDialog(page))) return false;
 
-      // Pick the *visible* dialog. FB sometimes leaves stale dialog DOM
-      // around — querySelector('[role="dialog"]') can return the wrong one.
-      const dialogs = Array.from(
-        document.querySelectorAll<HTMLElement>('[role="dialog"]'),
-      ).filter((d) => {
-        const r = d.getBoundingClientRect();
-        return r.width > 100 && r.height > 100;
-      });
-      if (dialogs.length === 0) return null;
-      // Prefer the largest visible dialog — that's the profile switcher.
-      dialogs.sort(
-        (a, b) =>
-          b.getBoundingClientRect().width * b.getBoundingClientRect().height -
-          a.getBoundingClientRect().width * a.getBoundingClientRect().height,
-      );
-      const dialog = dialogs[0];
+  const dialog = page.locator('[data-fbauto-switcher="1"]');
+  // Filter to a row inside the dialog whose first line of text equals the
+  // page name AND that contains an avatar image — that's the tile.
+  const tile = dialog
+    .locator("div")
+    .filter({
+      has: page.locator("img, svg"),
+      hasText: new RegExp(`^${pageName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i"),
+    })
+    .first();
 
-      const all = Array.from(dialog.querySelectorAll<HTMLElement>("*"));
-
-      const looksLikeRow = (el: HTMLElement) => {
-        const r = el.getBoundingClientRect();
-        return r.height >= 36 && r.height <= 110 && r.width >= 200;
-      };
-
-      const candidates: { el: HTMLElement; r: DOMRect }[] = [];
-
-      for (const el of all) {
-        if (!looksLikeRow(el)) continue;
-        // Must contain an avatar image — that's what distinguishes a
-        // profile tile from a generic text row.
-        if (!el.querySelector("img, svg image")) continue;
-        const inner = (el.innerText || "").trim();
-        if (!inner) continue;
-        const first = inner.split("\n")[0].replace(/\s+/g, " ").trim();
-        if (first.toLowerCase() !== lower) continue;
-        candidates.push({ el, r: el.getBoundingClientRect() });
-      }
-
-      if (candidates.length === 0) return null;
-
-      // Smallest matching row = innermost actual tile (not a wrapper).
-      candidates.sort((a, b) => a.r.height * a.r.width - b.r.height * b.r.width);
-      const best = candidates[0];
-      best.el.scrollIntoView({ block: "center", behavior: "instant" as ScrollBehavior });
-      const r = best.el.getBoundingClientRect();
-      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-    }, pageName);
-
-    if (box) {
-      // Real mouse gesture — bubbles through React's event system.
-      await page.mouse.move(box.x, box.y);
-      await page.mouse.down();
-      await page.waitForTimeout(50);
-      await page.mouse.up();
-      return true;
-    }
-
-    await page.waitForTimeout(250);
+  try {
+    await tile.waitFor({ state: "visible", timeout: 4000 });
+    await tile.scrollIntoViewIfNeeded();
+    // Playwright's locator click dispatches a real mouse gesture
+    // (move + mousedown + mouseup) at the element center.
+    await tile.click();
+  } catch {
+    return false;
   }
-  return false;
+
+  // Confirm: a real switch closes the dialog. If it stays visible past
+  // the timeout, the click hit something but didn't trigger the switch.
+  try {
+    await dialog.waitFor({ state: "hidden", timeout: 5000 });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -126,33 +118,18 @@ export async function switchToPage(page: Page, pageName: string): Promise<boolea
     }
   }
 
-  const urlBefore = page.url();
   const ok = await clickTileByName(page, pageName);
   if (!ok) {
     appendLog({
       level: "error",
       source: pageName,
-      message: `Could not click tile "${pageName}" in dialog`,
+      message: `Click did not switch identity for "${pageName}" (dialog stayed open)`,
     });
     await page.keyboard.press("Escape").catch(() => {});
     return false;
   }
 
-  // A real identity switch triggers a navigation. Wait up to 8s for the URL
-  // to change off facebook.com/. If it doesn't, the click hit something but
-  // didn't actually switch — log and report failure.
-  try {
-    await page.waitForURL((url) => url.href !== urlBefore, { timeout: 5000 });
-  } catch {
-    appendLog({
-      level: "error",
-      source: pageName,
-      message: "Click registered but URL didn't change — switch likely failed",
-    });
-    return false;
-  }
-
-  await randomDelay(1000, 2000);
+  await randomDelay(1500, 2500);
   await page.waitForLoadState("domcontentloaded").catch(() => {});
   return true;
 }
