@@ -69,7 +69,7 @@ export default function Dashboard() {
     <div className="min-h-screen p-6 font-sans">
       <div className="mx-auto flex max-w-7xl flex-col gap-6">
         <header className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold tracking-tight">FB Page Automation</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Page Engagement Automation</h1>
           <Dialog open={addOpen} onOpenChange={setAddOpen}>
             <DialogTrigger render={<Button />}>+ Add account</DialogTrigger>
             <DialogContent>
