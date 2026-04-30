@@ -1,13 +1,12 @@
 import { recentLogs, subscribe, type LogEntry } from "@/lib/logs";
+import { DEFAULT_ACCOUNT_ID } from "@/lib/accounts";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/**
- * Server-Sent Events stream. Sends a snapshot of recent logs on connect,
- * then pushes new entries as they arrive.
- */
 export async function GET(req: Request) {
+  const url = new URL(req.url);
+  const accountId = url.searchParams.get("account") ?? DEFAULT_ACCOUNT_ID;
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream<Uint8Array>({
@@ -18,12 +17,11 @@ export async function GET(req: Request) {
         );
       };
 
-      send("snapshot", recentLogs(200));
+      send("snapshot", recentLogs(200, accountId));
 
       const onEntry = (e: LogEntry) => send("log", e);
-      const unsub = subscribe(onEntry);
+      const unsub = subscribe(onEntry, accountId);
 
-      // Heartbeat keeps proxies from closing the connection.
       const hb = setInterval(() => {
         controller.enqueue(encoder.encode(`: ping\n\n`));
       }, 15_000);

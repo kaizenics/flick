@@ -1,48 +1,67 @@
 import { chromium, type Browser, type BrowserContext } from "playwright";
-import path from "node:path";
 import fs from "node:fs/promises";
+import { AsyncLocalStorage } from "node:async_hooks";
+import {
+  DEFAULT_ACCOUNT_ID,
+  storageStatePath,
+  accountDir,
+  type ProxyConfig,
+} from "../accounts";
 
-export const STORAGE_STATE_PATH = path.join(
-  process.cwd(),
-  "data",
-  "auth",
-  "storageState.json",
-);
+// Account context — set by the runner so logs/storage paths can be
+// derived without threading the id through every function.
+export const accountContext = new AsyncLocalStorage<string>();
+export function currentAccountId(): string {
+  return accountContext.getStore() ?? DEFAULT_ACCOUNT_ID;
+}
 
-export async function hasStorageState() {
+export function getStorageStatePath(id?: string) {
+  return storageStatePath(id ?? currentAccountId());
+}
+
+export async function hasStorageState(id?: string) {
   try {
-    await fs.access(STORAGE_STATE_PATH);
+    await fs.access(getStorageStatePath(id));
     return true;
   } catch {
     return false;
   }
 }
 
-export async function ensureAuthDir() {
-  await fs.mkdir(path.dirname(STORAGE_STATE_PATH), { recursive: true });
+export async function ensureAuthDir(id?: string) {
+  await fs.mkdir(accountDir(id ?? currentAccountId()), { recursive: true });
 }
 
 export type LaunchOptions = {
   headless?: boolean;
   withSession?: boolean;
   blockMedia?: boolean;
+  accountId?: string;
+  proxy?: ProxyConfig;
 };
 
 export async function launchBrowser(
   opts: LaunchOptions = {},
 ): Promise<{ browser: Browser; context: BrowserContext }> {
-  const { headless = true, withSession = true, blockMedia = false } = opts;
-  await ensureAuthDir();
+  const {
+    headless = true,
+    withSession = true,
+    blockMedia = false,
+    accountId,
+    proxy,
+  } = opts;
+  await ensureAuthDir(accountId);
 
   const browser = await chromium.launch({
     headless,
     args: ["--disable-blink-features=AutomationControlled"],
+    proxy: proxy ? { ...proxy } : undefined,
   });
 
-  const useSession = withSession && (await hasStorageState());
+  const useSession = withSession && (await hasStorageState(accountId));
 
   const context = await browser.newContext({
-    storageState: useSession ? STORAGE_STATE_PATH : undefined,
+    storageState: useSession ? getStorageStatePath(accountId) : undefined,
     viewport: { width: 1366, height: 820 },
     userAgent:
       "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -53,8 +72,6 @@ export async function launchBrowser(
     Object.defineProperty(navigator, "webdriver", { get: () => undefined });
   });
 
-  // Block heavy resources we don't need to find/click buttons. Cuts FB
-  // page-load wall time roughly in half.
   if (blockMedia) {
     await context.route("**/*", (route) => {
       const type = route.request().resourceType();
@@ -68,10 +85,6 @@ export async function launchBrowser(
   return { browser, context };
 }
 
-// Global multiplier applied to every randomDelay call.
-//   1.0    = normal (most human-like)
-//   0.15   = fast
-//   0      = no delay (bot-obvious; debug only)
 let delayScale = 1;
 export function setDelayScale(scale: number) {
   delayScale = Math.max(0, scale);

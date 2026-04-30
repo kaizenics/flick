@@ -1,41 +1,34 @@
 import fs from "node:fs/promises";
-import path from "node:path";
 import crypto from "node:crypto";
-
-const TARGETS_PATH = path.join(process.cwd(), "data", "targets.json");
+import { DEFAULT_ACCOUNT_ID, targetsPath, accountDir } from "./accounts";
 
 export type SourcePage = {
   id: string;
-  name: string; // exact name shown in FB account switcher
+  name: string;
   note?: string;
 };
 
 export type Config = {
-  targetUrl: string; // the Page that should receive follows
-  sources: SourcePage[]; // owned Pages that will each follow the target
+  targetUrl: string;
+  sources: SourcePage[];
 };
 
-const DEFAULT: Config = {
-  targetUrl: "",
-  sources: [],
-};
+const DEFAULT: Config = { targetUrl: "", sources: [] };
 
-async function ensure() {
-  await fs.mkdir(path.dirname(TARGETS_PATH), { recursive: true });
+async function ensure(id: string) {
+  await fs.mkdir(accountDir(id), { recursive: true });
+  const file = targetsPath(id);
   try {
-    await fs.access(TARGETS_PATH);
+    await fs.access(file);
   } catch {
-    await fs.writeFile(TARGETS_PATH, JSON.stringify(DEFAULT, null, 2));
+    await fs.writeFile(file, JSON.stringify(DEFAULT, null, 2));
   }
 }
 
-/**
- * Reads config and migrates the previous schema
- * ({ sourcePageName, targets[] }) to the new one if encountered.
- */
-export async function readConfig(): Promise<Config> {
-  await ensure();
-  const raw = await fs.readFile(TARGETS_PATH, "utf8");
+export async function readConfig(accountId: string = DEFAULT_ACCOUNT_ID): Promise<Config> {
+  await ensure(accountId);
+  const file = targetsPath(accountId);
+  const raw = await fs.readFile(file, "utf8");
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
@@ -43,6 +36,7 @@ export async function readConfig(): Promise<Config> {
     return DEFAULT;
   }
 
+  // Migrate legacy schema { sourcePageName, targets[] }.
   if (
     parsed &&
     typeof parsed === "object" &&
@@ -55,14 +49,17 @@ export async function readConfig(): Promise<Config> {
         ? [{ id: crypto.randomUUID(), name: old.sourcePageName }]
         : [],
     };
-    await fs.writeFile(TARGETS_PATH, JSON.stringify(migrated, null, 2));
+    await fs.writeFile(file, JSON.stringify(migrated, null, 2));
     return migrated;
   }
 
   return { ...DEFAULT, ...(parsed as Config) };
 }
 
-export async function writeConfig(cfg: Config): Promise<void> {
-  await ensure();
-  await fs.writeFile(TARGETS_PATH, JSON.stringify(cfg, null, 2));
+export async function writeConfig(
+  cfg: Config,
+  accountId: string = DEFAULT_ACCOUNT_ID,
+): Promise<void> {
+  await ensure(accountId);
+  await fs.writeFile(targetsPath(accountId), JSON.stringify(cfg, null, 2));
 }

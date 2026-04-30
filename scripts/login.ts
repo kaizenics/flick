@@ -8,7 +8,7 @@
  * then writes data/auth/storageState.json.
  */
 import { chromium } from "playwright";
-import { ensureAuthDir, STORAGE_STATE_PATH } from "../lib/automation/browser";
+import { ensureAuthDir, getStorageStatePath } from "../lib/automation/browser";
 
 async function main() {
   await ensureAuthDir();
@@ -25,8 +25,8 @@ async function main() {
     await new Promise((r) => setTimeout(r, 1500));
   }
 
-  await context.storageState({ path: STORAGE_STATE_PATH });
-  console.log(`Saved session → ${STORAGE_STATE_PATH}`);
+  await context.storageState({ path: getStorageStatePath() });
+  console.log(`Saved session → ${getStorageStatePath()}`);
 
   await browser.close();
 }
