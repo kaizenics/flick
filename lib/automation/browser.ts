@@ -25,12 +25,13 @@ export async function ensureAuthDir() {
 export type LaunchOptions = {
   headless?: boolean;
   withSession?: boolean;
+  blockMedia?: boolean;
 };
 
 export async function launchBrowser(
   opts: LaunchOptions = {},
 ): Promise<{ browser: Browser; context: BrowserContext }> {
-  const { headless = true, withSession = true } = opts;
+  const { headless = true, withSession = true, blockMedia = false } = opts;
   await ensureAuthDir();
 
   const browser = await chromium.launch({
@@ -48,16 +49,29 @@ export async function launchBrowser(
     locale: "en-US",
   });
 
-  // Light fingerprint hardening — webdriver flag.
   await context.addInitScript(() => {
     Object.defineProperty(navigator, "webdriver", { get: () => undefined });
   });
 
+  // Block heavy resources we don't need to find/click buttons. Cuts FB
+  // page-load wall time roughly in half.
+  if (blockMedia) {
+    await context.route("**/*", (route) => {
+      const type = route.request().resourceType();
+      if (type === "image" || type === "media" || type === "font") {
+        return route.abort();
+      }
+      return route.continue();
+    });
+  }
+
   return { browser, context };
 }
 
-// Global multiplier applied to every randomDelay call. 1.0 = normal,
-// 0.3 ≈ fast, 0 ≈ no delay (bot-obvious; use only for local debug).
+// Global multiplier applied to every randomDelay call.
+//   1.0    = normal (most human-like)
+//   0.15   = fast
+//   0      = no delay (bot-obvious; debug only)
 let delayScale = 1;
 export function setDelayScale(scale: number) {
   delayScale = Math.max(0, scale);

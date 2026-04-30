@@ -26,7 +26,7 @@ export type Speed = "normal" | "fast";
 export async function startRun(
   opts: { headless?: boolean; speed?: Speed } = {},
 ) {
-  setDelayScale(opts.speed === "fast" ? 0.3 : 1);
+  setDelayScale(opts.speed === "fast" ? 0.15 : 1);
   if (state.running) return { ok: false, reason: "already-running" as const };
   if (!(await hasStorageState())) return { ok: false, reason: "no-session" as const };
 
@@ -52,6 +52,7 @@ export async function startRun(
     const { browser, context } = await launchBrowser({
       headless: opts.headless ?? true,
       withSession: true,
+      blockMedia: opts.speed === "fast",
     });
     const page = await context.newPage();
 
@@ -129,7 +130,7 @@ export async function startRun(
           });
         }
 
-        await randomDelay(opts.speed === "fast" ? 800 : 3000, opts.speed === "fast" ? 2000 : 8000);
+        await randomDelay(opts.speed === "fast" ? 300 : 3000, opts.speed === "fast" ? 900 : 8000);
       }
     } finally {
       await context.close().catch(() => {});
