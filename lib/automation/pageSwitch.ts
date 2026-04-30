@@ -1,20 +1,7 @@
 import type { Page } from "playwright";
-import path from "node:path";
-import fs from "node:fs/promises";
 import { accountSwitcherTrigger, seeAllProfiles } from "./selectors";
 import { randomDelay } from "./browser";
 import { appendLog } from "../logs";
-
-async function dumpDebug(page: Page, label: string) {
-  const debugDir = path.join(process.cwd(), "data", "debug");
-  await fs.mkdir(debugDir, { recursive: true });
-  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const shot = path.join(debugDir, `${label}-${stamp}.png`);
-  const html = path.join(debugDir, `${label}-${stamp}.html`);
-  await page.screenshot({ path: shot, fullPage: true }).catch(() => {});
-  await fs.writeFile(html, await page.content().catch(() => "")).catch(() => {});
-  return path.relative(process.cwd(), shot);
-}
 
 /**
  * Click the row in the open dialog whose name matches `pageName`.
@@ -114,8 +101,7 @@ export async function switchToPage(page: Page, pageName: string): Promise<boolea
 
   const trigger = await accountSwitcherTrigger(page);
   if (!trigger) {
-    const shot = await dumpDebug(page, `switch-no-trigger-${pageName}`);
-    appendLog({ level: "error", source: pageName, message: `Avatar trigger not found — ${shot}` });
+    appendLog({ level: "error", source: pageName, message: "Avatar trigger not found" });
     return false;
   }
   await trigger.click();
@@ -143,11 +129,10 @@ export async function switchToPage(page: Page, pageName: string): Promise<boolea
   const urlBefore = page.url();
   const ok = await clickTileByName(page, pageName);
   if (!ok) {
-    const shot = await dumpDebug(page, `switch-tile-not-found-${pageName.replace(/\s+/g, "_")}`);
     appendLog({
       level: "error",
       source: pageName,
-      message: `Could not click tile "${pageName}" in dialog — ${shot}`,
+      message: `Could not click tile "${pageName}" in dialog`,
     });
     await page.keyboard.press("Escape").catch(() => {});
     return false;
@@ -159,11 +144,10 @@ export async function switchToPage(page: Page, pageName: string): Promise<boolea
   try {
     await page.waitForURL((url) => url.href !== urlBefore, { timeout: 5000 });
   } catch {
-    const shot = await dumpDebug(page, `switch-no-nav-${pageName.replace(/\s+/g, "_")}`);
     appendLog({
       level: "error",
       source: pageName,
-      message: `Click registered but URL didn't change — switch likely failed (${shot})`,
+      message: "Click registered but URL didn't change — switch likely failed",
     });
     return false;
   }

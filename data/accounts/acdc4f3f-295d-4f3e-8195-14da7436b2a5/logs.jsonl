@@ -1,0 +1,55 @@
+{"ts":"2026-04-30T01:43:18.165Z","level":"info","status":"started","target":"https://www.facebook.com/gocraftiv/","message":"Run started — target=\"https://www.facebook.com/gocraftiv/\", auto-discovering sources"}
+{"ts":"2026-04-30T01:43:27.660Z","level":"info","message":"Dialog tiles raw (17): [\"NJ Soriano\",\"Anijinsei ネコ\",\"Liana Navarro\",\"Ben Yuson Jr.\",\"Leo Aquino\",\"Rasiel Macapagal\",\"Talia Ember Castillo\",\"Ehra Laparan\",\"Brianna Skye Ramirez\",\"Yuri Aziel Navarro\",\"Lux Raze\",\"Sean Lim\",\"Cedric Manalo\",\"Yumi Villanueva\",\"Jace Navarro\",\"Lance Rafael Alcaraz\",\"Caleb Ramos\"] — data/debug/discover-dialog-2026-04-30T01-43-26-576Z.png"}
+{"ts":"2026-04-30T01:43:27.685Z","level":"info","message":"Detected 17 Page(s) in this account: NJ Soriano, Anijinsei ネコ, Liana Navarro, Ben Yuson Jr., Leo Aquino, Rasiel Macapagal, Talia Ember Castillo, Ehra Laparan, Brianna Skye Ramirez, Yuri Aziel Navarro, Lux Raze, Sean Lim, Cedric Manalo, Yumi Villanueva, Jace Navarro, Lance Rafael Alcaraz, Caleb Ramos"}
+{"ts":"2026-04-30T01:43:27.697Z","level":"info","source":"NJ Soriano","message":"[1/17] Switching to \"NJ Soriano\""}
+{"ts":"2026-04-30T01:44:10.660Z","level":"error","source":"NJ Soriano","message":"Click registered but URL didn't change — switch likely failed (data/debug/switch-no-nav-NJ_Soriano-2026-04-30T01-44-07-173Z.png)"}
+{"ts":"2026-04-30T01:44:10.660Z","level":"error","status":"error","source":"NJ Soriano","target":"https://www.facebook.com/gocraftiv/","message":"[1/17] Could not switch — skipping"}
+{"ts":"2026-04-30T01:44:11.202Z","level":"info","source":"Anijinsei ネコ","message":"[2/17] Switching to \"Anijinsei ネコ\""}
+{"ts":"2026-04-30T01:44:49.301Z","level":"info","source":"Anijinsei ネコ","target":"https://www.facebook.com/gocraftiv/","message":"[2/17] Switched. Navigating to target and following…"}
+{"ts":"2026-04-30T01:44:54.466Z","level":"info","status":"followed","source":"Anijinsei ネコ","target":"https://www.facebook.com/gocraftiv/","message":"[2/17] followed"}
+{"ts":"2026-04-30T01:44:54.525Z","level":"info","source":"Liana Navarro","message":"[3/17] Switching to \"Liana Navarro\""}
+{"ts":"2026-04-30T01:45:03.268Z","level":"info","source":"Liana Navarro","target":"https://www.facebook.com/gocraftiv/","message":"[3/17] Switched. Navigating to target and following…"}
+{"ts":"2026-04-30T01:45:08.914Z","level":"info","status":"followed","source":"Liana Navarro","target":"https://www.facebook.com/gocraftiv/","message":"[3/17] followed"}
+{"ts":"2026-04-30T01:45:09.033Z","level":"info","source":"Ben Yuson Jr.","message":"[4/17] Switching to \"Ben Yuson Jr.\""}
+{"ts":"2026-04-30T01:45:48.784Z","level":"info","source":"Ben Yuson Jr.","target":"https://www.facebook.com/gocraftiv/","message":"[4/17] Switched. Navigating to target and following…"}
+{"ts":"2026-04-30T01:45:58.524Z","level":"info","status":"followed","source":"Ben Yuson Jr.","target":"https://www.facebook.com/gocraftiv/","message":"[4/17] followed"}
+{"ts":"2026-04-30T01:45:58.619Z","level":"info","source":"Leo Aquino","message":"[5/17] Switching to \"Leo Aquino\""}
+{"ts":"2026-04-30T01:46:37.024Z","level":"info","source":"Leo Aquino","target":"https://www.facebook.com/gocraftiv/","message":"[5/17] Switched. Navigating to target and following…"}
+{"ts":"2026-04-30T01:46:42.424Z","level":"info","status":"followed","source":"Leo Aquino","target":"https://www.facebook.com/gocraftiv/","message":"[5/17] followed"}
+{"ts":"2026-04-30T01:46:42.485Z","level":"info","source":"Rasiel Macapagal","message":"[6/17] Switching to \"Rasiel Macapagal\""}
+{"ts":"2026-04-30T01:46:51.200Z","level":"info","source":"Rasiel Macapagal","target":"https://www.facebook.com/gocraftiv/","message":"[6/17] Switched. Navigating to target and following…"}
+{"ts":"2026-04-30T01:46:56.272Z","level":"info","status":"followed","source":"Rasiel Macapagal","target":"https://www.facebook.com/gocraftiv/","message":"[6/17] followed"}
+{"ts":"2026-04-30T01:46:56.370Z","level":"info","source":"Talia Ember Castillo","message":"[7/17] Switching to \"Talia Ember Castillo\""}
+{"ts":"2026-04-30T01:47:35.439Z","level":"info","source":"Talia Ember Castillo","target":"https://www.facebook.com/gocraftiv/","message":"[7/17] Switched. Navigating to target and following…"}
+{"ts":"2026-04-30T01:47:40.951Z","level":"info","status":"followed","source":"Talia Ember Castillo","target":"https://www.facebook.com/gocraftiv/","message":"[7/17] followed"}
+{"ts":"2026-04-30T01:47:41.064Z","level":"info","source":"Ehra Laparan","message":"[8/17] Switching to \"Ehra Laparan\""}
+{"ts":"2026-04-30T01:48:32.904Z","level":"error","source":"Ehra Laparan","message":"Click registered but URL didn't change — switch likely failed (data/debug/switch-no-nav-Ehra_Laparan-2026-04-30T01-48-21-798Z.png)"}
+{"ts":"2026-04-30T01:48:32.904Z","level":"error","status":"error","source":"Ehra Laparan","target":"https://www.facebook.com/gocraftiv/","message":"[8/17] Could not switch — skipping"}
+{"ts":"2026-04-30T01:48:33.329Z","level":"info","source":"Brianna Skye Ramirez","message":"[9/17] Switching to \"Brianna Skye Ramirez\""}
+{"ts":"2026-04-30T01:48:48.440Z","level":"error","source":"Brianna Skye Ramirez","message":"Click registered but URL didn't change — switch likely failed (data/debug/switch-no-nav-Brianna_Skye_Ramirez-2026-04-30T01-48-47-627Z.png)"}
+{"ts":"2026-04-30T01:48:48.441Z","level":"error","status":"error","source":"Brianna Skye Ramirez","target":"https://www.facebook.com/gocraftiv/","message":"[9/17] Could not switch — skipping"}
+{"ts":"2026-04-30T01:48:48.757Z","level":"info","source":"Yuri Aziel Navarro","message":"[10/17] Switching to \"Yuri Aziel Navarro\""}
+{"ts":"2026-04-30T01:48:58.458Z","level":"info","source":"Yuri Aziel Navarro","target":"https://www.facebook.com/gocraftiv/","message":"[10/17] Switched. Navigating to target and following…"}
+{"ts":"2026-04-30T01:49:03.754Z","level":"info","status":"followed","source":"Yuri Aziel Navarro","target":"https://www.facebook.com/gocraftiv/","message":"[10/17] followed"}
+{"ts":"2026-04-30T01:49:03.807Z","level":"info","source":"Lux Raze","message":"[11/17] Switching to \"Lux Raze\""}
+{"ts":"2026-04-30T01:49:43.106Z","level":"info","source":"Lux Raze","target":"https://www.facebook.com/gocraftiv/","message":"[11/17] Switched. Navigating to target and following…"}
+{"ts":"2026-04-30T01:49:48.574Z","level":"info","status":"followed","source":"Lux Raze","target":"https://www.facebook.com/gocraftiv/","message":"[11/17] followed"}
+{"ts":"2026-04-30T01:49:48.654Z","level":"info","source":"Sean Lim","message":"[12/17] Switching to \"Sean Lim\""}
+{"ts":"2026-04-30T01:50:28.517Z","level":"info","source":"Sean Lim","target":"https://www.facebook.com/gocraftiv/","message":"[12/17] Switched. Navigating to target and following…"}
+{"ts":"2026-04-30T01:50:33.857Z","level":"info","status":"followed","source":"Sean Lim","target":"https://www.facebook.com/gocraftiv/","message":"[12/17] followed"}
+{"ts":"2026-04-30T01:50:33.955Z","level":"info","source":"Cedric Manalo","message":"[13/17] Switching to \"Cedric Manalo\""}
+{"ts":"2026-04-30T01:50:51.231Z","level":"error","source":"Cedric Manalo","message":"Click registered but URL didn't change — switch likely failed (data/debug/switch-no-nav-Cedric_Manalo-2026-04-30T01-50-47-925Z.png)"}
+{"ts":"2026-04-30T01:50:51.231Z","level":"error","status":"error","source":"Cedric Manalo","target":"https://www.facebook.com/gocraftiv/","message":"[13/17] Could not switch — skipping"}
+{"ts":"2026-04-30T01:50:51.827Z","level":"info","source":"Yumi Villanueva","message":"[14/17] Switching to \"Yumi Villanueva\""}
+{"ts":"2026-04-30T01:50:59.669Z","level":"info","source":"Yumi Villanueva","target":"https://www.facebook.com/gocraftiv/","message":"[14/17] Switched. Navigating to target and following…"}
+{"ts":"2026-04-30T01:51:04.829Z","level":"info","status":"followed","source":"Yumi Villanueva","target":"https://www.facebook.com/gocraftiv/","message":"[14/17] followed"}
+{"ts":"2026-04-30T01:51:04.951Z","level":"info","source":"Jace Navarro","message":"[15/17] Switching to \"Jace Navarro\""}
+{"ts":"2026-04-30T01:51:42.400Z","level":"info","source":"Jace Navarro","target":"https://www.facebook.com/gocraftiv/","message":"[15/17] Switched. Navigating to target and following…"}
+{"ts":"2026-04-30T01:51:48.154Z","level":"info","status":"followed","source":"Jace Navarro","target":"https://www.facebook.com/gocraftiv/","message":"[15/17] followed"}
+{"ts":"2026-04-30T01:51:48.249Z","level":"info","source":"Lance Rafael Alcaraz","message":"[16/17] Switching to \"Lance Rafael Alcaraz\""}
+{"ts":"2026-04-30T01:51:57.087Z","level":"info","source":"Lance Rafael Alcaraz","target":"https://www.facebook.com/gocraftiv/","message":"[16/17] Switched. Navigating to target and following…"}
+{"ts":"2026-04-30T01:52:02.488Z","level":"info","status":"followed","source":"Lance Rafael Alcaraz","target":"https://www.facebook.com/gocraftiv/","message":"[16/17] followed"}
+{"ts":"2026-04-30T01:52:02.618Z","level":"info","source":"Caleb Ramos","message":"[17/17] Switching to \"Caleb Ramos\""}
+{"ts":"2026-04-30T01:52:12.200Z","level":"info","source":"Caleb Ramos","target":"https://www.facebook.com/gocraftiv/","message":"[17/17] Switched. Navigating to target and following…"}
+{"ts":"2026-04-30T01:52:17.212Z","level":"info","status":"followed","source":"Caleb Ramos","target":"https://www.facebook.com/gocraftiv/","message":"[17/17] followed"}
+{"ts":"2026-04-30T01:52:17.488Z","level":"info","status":"stopped","message":"Run finished"}

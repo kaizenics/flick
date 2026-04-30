@@ -1,23 +1,10 @@
 import type { Page } from "playwright";
-import path from "node:path";
-import fs from "node:fs/promises";
 import { accountSwitcherTrigger, seeAllProfiles } from "./selectors";
 import { randomDelay } from "./browser";
 import { appendLog } from "../logs";
 
 const NOISE_RE =
   /^(your profiles & pages|create( page| new)?|see all( profiles| pages)?|see more profiles|switch accounts|switch|manage|settings|log ?out|select profile|active|see more|home|menu|notifications?|messenger|search|search profiles and pages|edit|advertise|insights|professional dashboard|find friends|deactivated and deleted pages|back|go to accounts center)$/i;
-
-async function dumpDebug(page: Page, label: string) {
-  const debugDir = path.join(process.cwd(), "data", "debug");
-  await fs.mkdir(debugDir, { recursive: true });
-  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const shot = path.join(debugDir, `${label}-${stamp}.png`);
-  const html = path.join(debugDir, `${label}-${stamp}.html`);
-  await page.screenshot({ path: shot, fullPage: true }).catch(() => {});
-  await fs.writeFile(html, await page.content().catch(() => "")).catch(() => {});
-  return path.relative(process.cwd(), shot);
-}
 
 async function scrapeTiles(page: Page): Promise<string[]> {
   return await page.evaluate(() => {
@@ -88,8 +75,7 @@ export async function discoverOwnedPages(page: Page): Promise<string[]> {
 
   const trigger = await accountSwitcherTrigger(page);
   if (!trigger) {
-    const shot = await dumpDebug(page, "discover-no-trigger");
-    appendLog({ level: "error", message: `Avatar trigger not found — ${shot}` });
+    appendLog({ level: "error", message: "Avatar trigger not found" });
     return [];
   }
   await trigger.click();
@@ -106,12 +92,9 @@ export async function discoverOwnedPages(page: Page): Promise<string[]> {
 
   const tiles = await scrapeTiles(page);
 
-  const shot = await dumpDebug(page, "discover-dialog");
   appendLog({
     level: "info",
-    message: `Dialog tiles raw (${tiles.length}): ${JSON.stringify(
-      tiles.slice(0, 50),
-    )} — ${shot}`,
+    message: `Detected ${tiles.length} tile(s) in switcher`,
   });
 
   await page.keyboard.press("Escape").catch(() => {});
