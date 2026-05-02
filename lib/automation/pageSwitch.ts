@@ -45,38 +45,102 @@ async function tagSwitcherDialog(page: Page): Promise<boolean> {
   });
 }
 
+async function waitForSwitchConfirmed(page: Page, timeout: number): Promise<boolean> {
+  // A successful switch can manifest as: original dialog closes, OR a
+  // confirmation dialog appears asking "Switch to X?" — in which case we
+  // need to click its "Switch" / "Continue" button.
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const dialogStillOpen = await page
+      .locator('[data-fbauto-switcher="1"]')
+      .isVisible()
+      .catch(() => false);
+    if (!dialogStillOpen) return true;
+
+    // Look for a confirm button on a sibling dialog.
+    const confirm = page
+      .getByRole("button", { name: /^(switch|continue|confirm)$/i })
+      .first();
+    if (await confirm.isVisible().catch(() => false)) {
+      await confirm.click().catch(() => {});
+      await randomDelay(500, 1000);
+      continue;
+    }
+
+    await page.waitForTimeout(250);
+  }
+  return false;
+}
+
 async function clickTileByName(page: Page, pageName: string): Promise<boolean> {
   if (!(await tagSwitcherDialog(page))) return false;
 
   const dialog = page.locator('[data-fbauto-switcher="1"]');
-  // Filter to a row inside the dialog whose first line of text equals the
-  // page name AND that contains an avatar image — that's the tile.
-  const tile = dialog
-    .locator("div")
-    .filter({
-      has: page.locator("img, svg"),
-      hasText: new RegExp(`^${pageName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i"),
-    })
-    .first();
+  const safeName = pageName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const nameRegex = new RegExp(`^${safeName}$`, "i");
+  const startsRegex = new RegExp(`^${safeName}\\b`, "i");
 
-  try {
-    await tile.waitFor({ state: "visible", timeout: 4000 });
-    await tile.scrollIntoViewIfNeeded();
-    // Playwright's locator click dispatches a real mouse gesture
-    // (move + mousedown + mouseup) at the element center.
-    await tile.click();
-  } catch {
-    return false;
+  // Prioritized list of accessible-name based locators.
+  const candidates: Array<{ name: string; loc: ReturnType<typeof page.locator> }> = [
+    {
+      name: 'role=button name="Page Name"',
+      loc: dialog.getByRole("button", { name: nameRegex }).first(),
+    },
+    {
+      name: 'role=link name="Page Name"',
+      loc: dialog.getByRole("link", { name: nameRegex }).first(),
+    },
+    {
+      name: 'div[role=button] hasText',
+      loc: dialog.locator('div[role="button"]').filter({ hasText: startsRegex }).first(),
+    },
+    {
+      name: 'a[role=link] hasText',
+      loc: dialog.locator('a[role="link"]').filter({ hasText: startsRegex }).first(),
+    },
+    {
+      name: 'div[tabindex] hasText',
+      loc: dialog.locator("div[tabindex]").filter({ hasText: startsRegex }).first(),
+    },
+  ];
+
+  // Try each candidate; the first one that closes the dialog wins.
+  for (const { name, loc } of candidates) {
+    try {
+      if (!(await loc.isVisible({ timeout: 1500 }).catch(() => false))) continue;
+      await loc.scrollIntoViewIfNeeded().catch(() => {});
+
+      // Strategy A: regular click.
+      await loc.click({ timeout: 2000 }).catch(() => {});
+      if (await waitForSwitchConfirmed(page, 3500)) return true;
+
+      // Strategy B: focus + keyboard Enter. React handlers wired to
+      // onKeyDown often fire even when click hit-testing misses.
+      await loc.focus().catch(() => {});
+      await page.keyboard.press("Enter").catch(() => {});
+      if (await waitForSwitchConfirmed(page, 3500)) return true;
+
+      // Strategy C: raw mouse click at the tile's bounding-box center.
+      // Bypasses any overlay element that's intercepting pointer events.
+      try {
+        const box = await loc.boundingBox();
+        if (box) {
+          await page.mouse.click(
+            box.x + box.width / 2,
+            box.y + box.height / 2,
+          );
+          if (await waitForSwitchConfirmed(page, 3500)) return true;
+        }
+      } catch {
+        // ignore
+      }
+    } catch {
+      // Move on to next strategy.
+    }
+    void name;
   }
 
-  // Confirm: a real switch closes the dialog. If it stays visible past
-  // the timeout, the click hit something but didn't trigger the switch.
-  try {
-    await dialog.waitFor({ state: "hidden", timeout: 5000 });
-    return true;
-  } catch {
-    return false;
-  }
+  return false;
 }
 
 /**
