@@ -32,6 +32,7 @@ import {
   Zap,
   ZapOff,
   Share2,
+  Check,
   type LucideIcon,
 } from "lucide-react";
 
@@ -116,8 +117,20 @@ type NodeKey =
   | "social"
   | "session"
   | "target"
+  | "targetPost"
   | "action"
   | "reactions";
+
+type ReactionKind = "like" | "love" | "haha" | "wow" | "sad" | "angry";
+
+const REACTION_OPTIONS: Array<{ id: ReactionKind; label: string; emoji: string }> = [
+  { id: "like", label: "Like", emoji: "👍" },
+  { id: "love", label: "Love", emoji: "❤️" },
+  { id: "haha", label: "Haha", emoji: "😆" },
+  { id: "wow", label: "Wow", emoji: "😮" },
+  { id: "sad", label: "Sad", emoji: "😢" },
+  { id: "angry", label: "Angry", emoji: "😡" },
+];
 
 type Platform = "facebook" | "instagram" | "threads";
 
@@ -162,11 +175,10 @@ function IconNode({
       <button
         type="button"
         onClick={onOpen}
-        className={`flex size-22 cursor-pointer items-center justify-center rounded-2xl border bg-card shadow-[0_2px_6px_rgba(0,0,0,0.4)] transition-all hover:shadow-[0_4px_12px_rgba(0,0,0,0.5)] ${
-          greenBorder
+        className={`flex size-22 cursor-pointer items-center justify-center rounded-2xl border bg-card shadow-[0_2px_6px_rgba(0,0,0,0.4)] transition-all hover:shadow-[0_4px_12px_rgba(0,0,0,0.5)] ${greenBorder
             ? `border-emerald-500 ${active ? "ring-2 ring-emerald-500/30" : ""}`
             : "border-border"
-        }`}
+          }`}
         style={{ width: 88, height: 88 }}
         title={`${label} — click to configure`}
       >
@@ -296,11 +308,10 @@ function SocialMediaNode({ id, data }: NodeProps) {
                 type="button"
                 disabled={p.soon}
                 onClick={() => d.onPlatformChange(id, p.id)}
-                className={`relative flex flex-col items-center gap-2 rounded-md border p-3 text-xs transition-colors ${
-                  selected
+                className={`relative flex flex-col items-center gap-2 rounded-md border p-3 text-xs transition-colors ${selected
                     ? "border-emerald-500 bg-emerald-500/10 text-foreground"
                     : "border-border hover:border-foreground/40"
-                } ${p.soon ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
+                  } ${p.soon ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
               >
                 <Icon className="size-6" />
                 <span className="font-medium">{p.label}</span>
@@ -346,7 +357,10 @@ function SessionNode({ id, data }: NodeProps) {
         description="Login + saved cookies for the target platform."
       >
         <div className="rounded-md border border-border bg-muted/30 p-3 text-xs">
-          {has ? "✓ Saved Facebook session" : "No session yet"}
+          {has ? <>
+            <Check className="inline w-4 h-4 mr-1" />
+            Saved Facebook session
+          </> : "No session yet"}
         </div>
         <Button onClick={d.onLogin}>
           {has ? "Re-login" : "Login to Facebook"}
@@ -394,6 +408,55 @@ function TargetNode({ id, data }: NodeProps) {
             onChange={(e) => d.onUrlChange(id, e.target.value)}
           />
         </div>
+        <div className="flex justify-end">
+          <Button onClick={() => setOpen(false)}>Save</Button>
+        </div>
+      </NodeDialog>
+    </>
+  );
+}
+
+function TargetPostNode({ id, data }: NodeProps) {
+  const d = data as {
+    state: RunState;
+    url: string;
+    onPostUrlChange: (id: string, v: string) => void;
+    onDelete: (id: string) => void;
+    onAdd: () => void;
+  };
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <IconNode
+        running={d.state.status?.running ?? false}
+        icon={TargetIcon}
+        iconClassName="text-fuchsia-500"
+        label="Target Post"
+        active={d.state.active === "targetPost"}
+        onOpen={() => setOpen(true)}
+        onDelete={() => d.onDelete(id)}
+        onAdd={d.onAdd}
+      />
+      <NodeDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Target Post"
+        description="The post that will receive reactions."
+      >
+        <div className="flex flex-col gap-2">
+          <Label htmlFor={`target-post-url-${id}`} className="text-xs">
+            Post URL
+          </Label>
+          <Input
+            id={`target-post-url-${id}`}
+            placeholder="https://www.facebook.com/.../posts/123..."
+            value={d.url ?? ""}
+            onChange={(e) => d.onPostUrlChange(id, e.target.value)}
+          />
+        </div>
+        <div className="flex justify-end">
+          <Button onClick={() => setOpen(false)}>Save</Button>
+        </div>
       </NodeDialog>
     </>
   );
@@ -430,15 +493,21 @@ function ActionNode({ id, data }: NodeProps) {
 }
 
 function ReactionsNode({ id, data }: NodeProps) {
-  const d = data as { state: RunState; onDelete: (id: string) => void };
+  const d = data as {
+    state: RunState;
+    reaction: ReactionKind;
+    onReactionChange: (id: string, r: ReactionKind) => void;
+    onDelete: (id: string) => void;
+  };
   const [open, setOpen] = useState(false);
+  const current = REACTION_OPTIONS.find((r) => r.id === d.reaction) ?? REACTION_OPTIONS[0];
   return (
     <>
       <IconNode
         running={d.state.status?.running ?? false}
         icon={Smile}
         iconClassName="text-yellow-500"
-        label="Reactions"
+        label={`Reactions: ${current.label}`}
         showRight={false}
         active={d.state.active === "reactions"}
         onOpen={() => setOpen(true)}
@@ -448,10 +517,27 @@ function ReactionsNode({ id, data }: NodeProps) {
         open={open}
         onOpenChange={setOpen}
         title="Reactions"
-        description="Drops a reaction (Like / Love / Haha / Wow / Sad / Angry) on the target."
+        description="Drops the chosen reaction on the target post."
       >
-        <div className="text-xs text-muted-foreground">
-          Reactions automation runs alongside Follow / Like once the run starts.
+        <div className="grid grid-cols-3 gap-2">
+          {REACTION_OPTIONS.map((r) => {
+            const selected = r.id === d.reaction;
+            return (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => d.onReactionChange(id, r.id)}
+                className={`flex flex-col items-center gap-1 rounded-md border p-3 text-xs transition-colors ${
+                  selected
+                    ? "border-emerald-500 bg-emerald-500/10 text-foreground"
+                    : "border-border hover:border-foreground/40"
+                }`}
+              >
+                <span className="text-2xl leading-none">{r.emoji}</span>
+                <span className="font-medium">{r.label}</span>
+              </button>
+            );
+          })}
         </div>
       </NodeDialog>
     </>
@@ -462,6 +548,7 @@ const nodeTypes = {
   social: SocialMediaNode,
   session: SessionNode,
   target: TargetNode,
+  targetPost: TargetPostNode,
   action: ActionNode,
   reactions: ReactionsNode,
 };
@@ -474,12 +561,13 @@ const PALETTE: Array<{
   description: string;
   icon: LucideIcon;
 }> = [
-  { type: "social", label: "Social Media", description: "Pick the platform", icon: Share2 },
-  { type: "session", label: "Session", description: "Login + saved cookies", icon: KeyRound },
-  { type: "target", label: "Target Page", description: "URL to receive follows", icon: TargetIcon },
-  { type: "action", label: "Follow / Like", description: "Try Follow, fall back to Like", icon: Heart },
-  { type: "reactions", label: "Reactions", description: "Drop a reaction on the target", icon: Smile },
-];
+    { type: "social", label: "Social Media", description: "Pick the platform", icon: Share2 },
+    { type: "session", label: "Session", description: "Login + saved cookies", icon: KeyRound },
+    { type: "target", label: "Target Page", description: "URL to receive follows", icon: TargetIcon },
+    { type: "targetPost", label: "Target Post", description: "Post URL for reactions", icon: TargetIcon },
+    { type: "action", label: "Follow / Like", description: "Try Follow, fall back to Like", icon: Heart },
+    { type: "reactions", label: "Reactions", description: "Drop a reaction on the target", icon: Smile },
+  ];
 
 /* ---------- main ---------- */
 
@@ -651,18 +739,28 @@ function FlowInner({ accountId }: { accountId: string }) {
 
   const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scheduleSync = useCallback(
-    (urls: string[]) => {
+    (payload: { targetUrls?: string[]; posts?: Array<{ url: string; reaction: ReactionKind }> }) => {
       if (syncTimer.current) clearTimeout(syncTimer.current);
       syncTimer.current = setTimeout(async () => {
         await fetch(`/api/targets${qs}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ targetUrls: urls }),
+          body: JSON.stringify(payload),
         });
       }, 400);
     },
     [qs],
   );
+
+  const collectPosts = useCallback((nds: Node[]) => {
+    return nds
+      .filter((n) => n.type === "targetPost")
+      .map((n) => {
+        const d = n.data as { url?: string; reaction?: ReactionKind };
+        return { url: String(d.url ?? "").trim(), reaction: (d.reaction ?? "like") as ReactionKind };
+      })
+      .filter((p) => p.url.length > 0);
+  }, []);
 
   const setNodesRef = useRef<((updater: (nds: Node[]) => Node[]) => void) | null>(null);
 
@@ -678,7 +776,7 @@ function FlowInner({ accountId }: { accountId: string }) {
           .filter((n) => n.type === "target")
           .map((n) => String((n.data as { url?: string }).url ?? "").trim())
           .filter(Boolean);
-        scheduleSync(urls);
+        scheduleSync({ targetUrls: urls });
         return next;
       });
     },
@@ -696,6 +794,51 @@ function FlowInner({ accountId }: { accountId: string }) {
     );
   }, []);
 
+  const onPostUrlChange = useCallback(
+    (nodeId: string, v: string) => {
+      setNodesRef.current?.((nds) => {
+        const next = nds.map((n) =>
+          n.id === nodeId && n.type === "targetPost"
+            ? { ...n, data: { ...n.data, url: v } }
+            : n,
+        );
+        scheduleSync({ posts: collectPosts(next) });
+        return next;
+      });
+    },
+    [scheduleSync, collectPosts],
+  );
+
+  const onReactionChange = useCallback(
+    (nodeId: string, r: ReactionKind) => {
+      setNodesRef.current?.((nds) => {
+        const next = nds.map((n) =>
+          n.id === nodeId && n.type === "reactions"
+            ? { ...n, data: { ...n.data, reaction: r } }
+            : n,
+        );
+        // Reactions live on the reactions node, but posts on targetPost. Pair
+        // them by walking edges: targetPost → reactions. Each reactions node
+        // applies its kind to whichever Target Post(s) feed into it.
+        // Simpler model for now: store reaction on reactions node, apply the
+        // first reactions-node's kind to all post URLs at sync time. Since
+        // we don't have edge access here, we fall back to reading reaction
+        // from the changed node and applying to every target post.
+        const reactionForAll = r;
+        const posts = next
+          .filter((n) => n.type === "targetPost")
+          .map((n) => ({
+            url: String((n.data as { url?: string }).url ?? "").trim(),
+            reaction: reactionForAll,
+          }))
+          .filter((p) => p.url.length > 0);
+        scheduleSync({ posts });
+        return next;
+      });
+    },
+    [scheduleSync],
+  );
+
   const post = useCallback(
     async (path: string, body?: unknown) => {
       const res = await fetch(`${path}${qs}`, {
@@ -708,7 +851,7 @@ function FlowInner({ accountId }: { accountId: string }) {
         const map: Record<string, string> = {
           "already-running": "A run is already in progress.",
           "no-session": "Login to Facebook first.",
-          "no-target": "Set the Target Page URL first.",
+          "no-target": "Set a Target URL first.",
           "not-running": "Nothing is running.",
         };
         toast.error(map[data.reason ?? ""] ?? `Request failed (${res.status})`);
@@ -728,8 +871,8 @@ function FlowInner({ accountId }: { accountId: string }) {
   );
   const onStop = useCallback(() => post("/api/automation/stop"), [post]);
 
-  const deleteNodeRef = useRef<(id: string) => void>(() => {});
-  const addPickerRef = useRef<(sourceId: string) => void>(() => {});
+  const deleteNodeRef = useRef<(id: string) => void>(() => { });
+  const addPickerRef = useRef<(sourceId: string) => void>(() => { });
   const [pickerSourceId, setPickerSourceId] = useState<string | null>(null);
 
   const dataFor = useCallback(
@@ -739,17 +882,32 @@ function FlowInner({ accountId }: { accountId: string }) {
       const type = id.split("-")[0];
       switch (type) {
         case "social":
-          return { state, platform: "facebook" as Platform, onPlatformChange, onDelete, onAdd };
+          return { state, onPlatformChange, onDelete, onAdd };
         case "session":
           return { state, onLogin, onDelete, onAdd };
         case "target":
           return { state, onUrlChange: onTargetUrlChange, onDelete, onAdd };
+        case "targetPost":
+          return { state, onPostUrlChange, onDelete, onAdd };
+        case "reactions":
+          return { state, onReactionChange, onDelete, onAdd };
         default:
           return { state, onDelete, onAdd };
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [state, headed, fast, onLogin, onStart, onStop, onTargetUrlChange, onPlatformChange],
+    [
+      state,
+      headed,
+      fast,
+      onLogin,
+      onStart,
+      onStop,
+      onTargetUrlChange,
+      onPlatformChange,
+      onPostUrlChange,
+      onReactionChange,
+    ],
   );
 
   useEffect(() => {
@@ -779,7 +937,7 @@ function FlowInner({ accountId }: { accountId: string }) {
             .filter((n) => n.type === "target")
             .map((n) => String((n.data as { url?: string }).url ?? "").trim())
             .filter(Boolean);
-          scheduleSync(urls);
+          scheduleSync({ targetUrls: urls });
         }
         return next;
       });
@@ -907,11 +1065,36 @@ function FlowInner({ accountId }: { accountId: string }) {
         nodesIn.map((n) => ({ ...n, data: { ...n.data, ...dataFor(n.id) } })),
       );
       setEdges(edgesIn);
+
+      // Mirror the loaded workflow's pages + posts to the runner's
+      // per-account targets file so the automation backend sees them
+      // even if the user hasn't re-edited the inputs since last load.
+      const targetUrls = nodesIn
+        .filter((n) => n.type === "target")
+        .map((n) => String((n.data as { url?: string }).url ?? "").trim())
+        .filter((u) => u.length > 0);
+      const reactionKind = (() => {
+        const r = nodesIn.find((n) => n.type === "reactions");
+        const k = (r?.data as { reaction?: ReactionKind } | undefined)?.reaction;
+        return (k ?? "like") as ReactionKind;
+      })();
+      const posts = nodesIn
+        .filter((n) => n.type === "targetPost")
+        .map((n) => ({
+          url: String((n.data as { url?: string }).url ?? "").trim(),
+          reaction: reactionKind,
+        }))
+        .filter((p) => p.url.length > 0);
+      await fetch(`/api/targets${qs}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetUrls, posts }),
+      }).catch(() => {});
     })();
     return () => {
       off = true;
     };
-  }, [activeWorkflowId, setNodes, setEdges, dataFor]);
+  }, [activeWorkflowId, setNodes, setEdges, dataFor, qs]);
 
   // Autosave nodes/edges (debounced) for the active workflow.
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -979,8 +1162,9 @@ function FlowInner({ accountId }: { accountId: string }) {
   const ALLOWED_CONNECTIONS: Record<string, string[]> = useMemo(
     () => ({
       social: ["session"],
-      session: ["target"],
-      target: ["action", "reactions"],
+      session: ["target", "targetPost"],
+      target: ["action"],
+      targetPost: ["reactions"],
     }),
     [],
   );
@@ -1003,9 +1187,13 @@ function FlowInner({ accountId }: { accountId: string }) {
       const data =
         type === "target"
           ? { ...baseData, url: "" }
-          : type === "social"
-            ? { ...baseData, platform: "facebook" as Platform }
-            : baseData;
+          : type === "targetPost"
+            ? { ...baseData, url: "" }
+            : type === "reactions"
+              ? { ...baseData, reaction: "like" as ReactionKind }
+              : type === "social"
+                ? { ...baseData, platform: "facebook" as Platform }
+                : baseData;
       const newNode: Node = {
         id,
         type,
@@ -1109,9 +1297,8 @@ function FlowInner({ accountId }: { accountId: string }) {
             {showLogs ? "Hide logs" : "Show logs"}
           </button>
           <span
-            className={`inline-block h-2.5 w-2.5 rounded-full ${
-              status?.running ? "bg-emerald-500" : "bg-zinc-400"
-            }`}
+            className={`inline-block h-2.5 w-2.5 rounded-full ${status?.running ? "bg-emerald-500" : "bg-zinc-400"
+              }`}
           />
           {status?.running ? "Running" : "Idle"}
         </div>
@@ -1140,11 +1327,10 @@ function FlowInner({ accountId }: { accountId: string }) {
                   return (
                     <div
                       key={w.id}
-                      className={`group flex items-center gap-1 rounded-md border px-2 py-1.5 text-xs transition-colors ${
-                        selected
+                      className={`group flex items-center gap-1 rounded-md border px-2 py-1.5 text-xs transition-colors ${selected
                           ? "border-emerald-500 bg-emerald-500/10"
                           : "border-border hover:border-foreground/40"
-                      }`}
+                        }`}
                     >
                       <button
                         type="button"
@@ -1281,36 +1467,36 @@ function FlowInner({ accountId }: { accountId: string }) {
         </div>
 
         {showLogs && (
-        <aside className="flex min-h-0 flex-col rounded-lg border bg-background p-3">
-          <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Logs
-          </div>
-          <div
-            ref={logsRef}
-            className="min-h-0 flex-1 overflow-y-auto rounded-md bg-zinc-950 p-3 font-mono text-xs text-zinc-100"
-          >
-            {logs.map((l, i) => (
-              <div
-                key={i}
-                className={
-                  l.level === "error"
-                    ? "text-red-400"
-                    : l.level === "warn"
-                      ? "text-amber-300"
-                      : "text-zinc-200"
-                }
-              >
-                <span className="text-zinc-500">
-                  {new Date(l.ts).toLocaleTimeString()}{" "}
-                </span>
-                {l.status && <span className="text-zinc-400">[{l.status}] </span>}
-                {l.source && <span className="text-blue-300">{l.source} </span>}
-                {l.target && <span className="text-emerald-300">→ {l.target} </span>}
-                <span>{l.message}</span>
-              </div>
-            ))}
-          </div>
-        </aside>
+          <aside className="flex min-h-0 flex-col rounded-lg border bg-background p-3">
+            <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Logs
+            </div>
+            <div
+              ref={logsRef}
+              className="min-h-0 flex-1 overflow-y-auto rounded-md bg-zinc-950 p-3 font-mono text-xs text-zinc-100"
+            >
+              {logs.map((l, i) => (
+                <div
+                  key={i}
+                  className={
+                    l.level === "error"
+                      ? "text-red-400"
+                      : l.level === "warn"
+                        ? "text-amber-300"
+                        : "text-zinc-200"
+                  }
+                >
+                  <span className="text-zinc-500">
+                    {new Date(l.ts).toLocaleTimeString()}{" "}
+                  </span>
+                  {l.status && <span className="text-zinc-400">[{l.status}] </span>}
+                  {l.source && <span className="text-blue-300">{l.source} </span>}
+                  {l.target && <span className="text-emerald-300">→ {l.target} </span>}
+                  <span>{l.message}</span>
+                </div>
+              ))}
+            </div>
+          </aside>
         )}
       </div>
 

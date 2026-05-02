@@ -58,3 +58,22 @@
 {"ts":"2026-05-02T16:43:36.789Z","level":"info","status":"stopped","message":"Stop requested"}
 {"ts":"2026-05-02T16:43:40.628Z","level":"info","source":"Lani Gonzales","message":"[2/14] Switched. Visiting 1 target(s)…"}
 {"ts":"2026-05-02T16:43:40.843Z","level":"info","status":"stopped","message":"Run finished"}
+{"ts":"2026-05-02T18:41:54.642Z","level":"info","status":"started","message":"Run started — targets=0, auto-discovering sources"}
+{"ts":"2026-05-02T18:41:58.420Z","level":"info","status":"stopped","message":"Stop requested"}
+{"ts":"2026-05-02T18:42:02.615Z","level":"info","status":"stopped","message":"Stop requested"}
+{"ts":"2026-05-02T18:42:02.774Z","level":"info","message":"Detected 14 tile(s) in switcher: [\"Kei Autumn\",\"Lani Gonzales\",\"Faith Villanueva\",\"Craftiv\",\"Likha Digitals\",\"Synt Studios\",\"Paolo Cavan\",\"Kiel Kiel\",\"Ayumi Zenia Fernandez\",\"Kenzo Castillo\",\"Leira Dominique Tan\",\"Nathan Ezra Ramos\",\"Kelsey Salazar\",\"Ava Cruz\"]"}
+{"ts":"2026-05-02T18:42:02.782Z","level":"info","message":"Detected 14 Page(s) in this account: Kei Autumn, Lani Gonzales, Faith Villanueva, Craftiv, Likha Digitals, Synt Studios, Paolo Cavan, Kiel Kiel, Ayumi Zenia Fernandez, Kenzo Castillo, Leira Dominique Tan, Nathan Ezra Ramos, Kelsey Salazar, Ava Cruz"}
+{"ts":"2026-05-02T18:42:02.893Z","level":"info","status":"stopped","message":"Run finished"}
+{"ts":"2026-05-02T18:42:03.023Z","level":"info","status":"started","message":"Run started — targets=0, auto-discovering sources"}
+{"ts":"2026-05-02T18:42:11.572Z","level":"info","message":"Detected 14 tile(s) in switcher: [\"Kei Autumn\",\"Lani Gonzales\",\"Faith Villanueva\",\"Craftiv\",\"Likha Digitals\",\"Synt Studios\",\"Paolo Cavan\",\"Kiel Kiel\",\"Ayumi Zenia Fernandez\",\"Kenzo Castillo\",\"Leira Dominique Tan\",\"Nathan Ezra Ramos\",\"Kelsey Salazar\",\"Ava Cruz\"]"}
+{"ts":"2026-05-02T18:42:11.580Z","level":"info","message":"Detected 14 Page(s) in this account: Kei Autumn, Lani Gonzales, Faith Villanueva, Craftiv, Likha Digitals, Synt Studios, Paolo Cavan, Kiel Kiel, Ayumi Zenia Fernandez, Kenzo Castillo, Leira Dominique Tan, Nathan Ezra Ramos, Kelsey Salazar, Ava Cruz"}
+{"ts":"2026-05-02T18:42:11.580Z","level":"info","source":"Kei Autumn","message":"[1/14] Switching to \"Kei Autumn\""}
+{"ts":"2026-05-02T18:42:19.341Z","level":"info","source":"Kei Autumn","message":"[1/14] Switched. Visiting 0 target(s)…"}
+{"ts":"2026-05-02T18:42:24.517Z","level":"info","status":"reacted","source":"Kei Autumn","target":"https://www.facebook.com/share/p/1A7TtiNgA5/","message":"[1/14][reaction] like reacted"}
+{"ts":"2026-05-02T18:42:24.649Z","level":"info","source":"Lani Gonzales","message":"[2/14] Switching to \"Lani Gonzales\""}
+{"ts":"2026-05-02T18:43:00.367Z","level":"info","source":"Lani Gonzales","message":"[2/14] Switched. Visiting 0 target(s)…"}
+{"ts":"2026-05-02T18:43:02.454Z","level":"info","status":"reacted","source":"Lani Gonzales","target":"https://www.facebook.com/share/p/1A7TtiNgA5/","message":"[2/14][reaction] like reacted"}
+{"ts":"2026-05-02T18:43:02.585Z","level":"info","source":"Faith Villanueva","message":"[3/14] Switching to \"Faith Villanueva\""}
+{"ts":"2026-05-02T18:43:10.797Z","level":"info","source":"Faith Villanueva","message":"[3/14] Switched. Visiting 0 target(s)…"}
+{"ts":"2026-05-02T18:43:15.180Z","level":"info","status":"reacted","source":"Faith Villanueva","target":"https://www.facebook.com/share/p/1A7TtiNgA5/","message":"[3/14][reaction] like reacted"}
+{"ts":"2026-05-02T18:43:15.241Z","level":"info","source":"Craftiv","message":"[4/14] Switching to \"Craftiv\""}
