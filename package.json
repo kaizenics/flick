@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "auth:migrate": "better-auth migrate --config lib/auth.ts"
+    "auth:migrate": "pnpm dlx @better-auth/cli@latest migrate --config lib/auth.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

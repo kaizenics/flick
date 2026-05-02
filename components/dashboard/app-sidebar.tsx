@@ -9,8 +9,6 @@ import {
   Workflow,
   FileStack,
   Smile,
-  LifeBuoy,
-  Settings,
 } from "lucide-react";
 
 import {
@@ -41,11 +39,6 @@ const navTools = [
   { title: "Reactions", href: "/reactions", icon: Smile, available: false },
 ];
 
-const navSecondary = [
-  { title: "Support", href: "#", icon: LifeBuoy },
-  { title: "Settings", href: "#", icon: Settings },
-];
-
 function SidebarToggle({ className }: { className?: string }) {
   const { toggleSidebar, state } = useSidebar();
   const collapsed = state === "collapsed";
@@ -69,8 +62,20 @@ function SidebarToggle({ className }: { className?: string }) {
   );
 }
 
-export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
+type SidebarUser = {
+  name?: string | null;
+  email?: string | null;
+  image?: string | null;
+};
+
+export function AppSidebar({
+  user,
+  ...props
+}: React.ComponentProps<typeof Sidebar> & { user?: SidebarUser }) {
   const pathname = usePathname();
+  const displayName = user?.name?.trim() || user?.email?.split("@")[0] || "Account";
+  const displayEmail = user?.email ?? "";
+  const initial = (displayName[0] ?? "A").toUpperCase();
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -166,27 +171,6 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup className="mt-auto">
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {navSecondary.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      size="sm"
-                      tooltip={item.title}
-                      render={<Link href={item.href} />}
-                    >
-                      <Icon />
-                      <span>{item.title}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
       </SidebarContent>
 
       <SidebarFooter>
@@ -194,16 +178,25 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenuItem>
             <SidebarMenuButton
               size="lg"
-              tooltip="Operator"
-              render={<Link href="/" />}
+              tooltip={displayName}
+              render={<Link href="/profile" />}
             >
-              <div className="flex aspect-square size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-xs font-medium">
-                L
+              <div className="flex aspect-square size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-card text-xs font-medium">
+                {user?.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={user.image}
+                    alt={displayName}
+                    className="size-full object-cover"
+                  />
+                ) : (
+                  initial
+                )}
               </div>
               <div className="flex min-w-0 flex-col gap-0.5 text-left leading-none group-data-[collapsible=icon]:hidden">
-                <span className="truncate text-sm font-medium">Operator</span>
+                <span className="truncate text-sm font-medium">{displayName}</span>
                 <span className="truncate text-xs text-muted-foreground">
-                  admin@lifty.com
+                  {displayEmail}
                 </span>
               </div>
             </SidebarMenuButton>
