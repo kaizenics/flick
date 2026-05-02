@@ -203,7 +203,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
               <div className="flex min-w-0 flex-col gap-0.5 text-left leading-none group-data-[collapsible=icon]:hidden">
                 <span className="truncate text-sm font-medium">Operator</span>
                 <span className="truncate text-xs text-muted-foreground">
-                  leodus@lifty
+                  admin@lifty.com
                 </span>
               </div>
             </SidebarMenuButton>
