@@ -40,7 +40,7 @@ export function Faq() {
         </p>
       </div>
 
-      <div className="flex-1 divide-y divide-border rounded-xl border border-border">
+      <div className="flex-1 divide-y divide-border rounded-xl border border-border bg-card">
         {items.map((item) => (
           <details key={item.q} className="group p-6 [&_summary::-webkit-details-marker]:hidden">
             <summary className="flex cursor-pointer items-center justify-between gap-6 text-sm font-medium tracking-tight outline-none">
