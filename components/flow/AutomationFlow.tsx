@@ -78,6 +78,16 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Plus } from "lucide-react";
 
 type LogEntry = {
@@ -199,7 +209,7 @@ function IconNode({
             onAdd();
           }}
           className="absolute z-10 flex size-5 items-center justify-center rounded-full border border-zinc-600 bg-card text-muted-foreground opacity-0 transition-opacity hover:border-emerald-500 hover:text-emerald-500 group-hover:opacity-100"
-          style={{ left: "100%", top: 38, transform: "translateX(-50%)" }}
+          style={{ left: "100%", top: "60%", transform: "translateX(-50%) translateY(-50%)" }}
           title="Add next node"
           aria-label="Add next node"
         >
@@ -555,6 +565,7 @@ function FlowInner({ accountId }: { accountId: string }) {
   const [fast, setFast] = useState(true);
   const [showLogs, setShowLogs] = useState(true);
   const [showWorkflows, setShowWorkflows] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [workflows, setWorkflows] = useState<
     Array<{ id: string; name: string; updatedAt: number }>
   >([]);
@@ -745,30 +756,10 @@ function FlowInner({ accountId }: { accountId: string }) {
     addPickerRef.current = (sourceId) => setPickerSourceId(sourceId);
   }, []);
 
-  const initialNodes = useMemo<Node[]>(() => {
-    const layout: Array<{ id: string; type: string; x: number; y: number }> = [
-      { id: "social", type: "social", x: -200, y: 0 },
-      { id: "session", type: "session", x: 0, y: 0 },
-      { id: "target", type: "target", x: 200, y: 0 },
-      { id: "action", type: "action", x: 400, y: 60 },
-      { id: "reactions", type: "reactions", x: 400, y: 240 },
-    ];
-    return layout.map((n) => ({
-      id: n.id,
-      type: n.type,
-      position: { x: n.x, y: n.y },
-      data: dataFor(n.id),
-    }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const initialNodes = useMemo<Node[]>(() => [], []);
 
   const initialEdges = useMemo<Edge[]>(
-    () => [
-      { id: "e0", source: "social", target: "session" },
-      { id: "e1", source: "session", target: "target" },
-      { id: "e2", source: "target", target: "action" },
-      { id: "e3", source: "target", target: "reactions" },
-    ],
+    () => [],
     [],
   );
 
@@ -868,7 +859,7 @@ function FlowInner({ accountId }: { accountId: string }) {
         const r = await fetch("/api/workflows", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: "My workflow" }),
+          body: JSON.stringify({ name: "My workflow", data: starterData }),
         });
         if (r.ok) {
           const j = (await r.json()) as { id: string; name: string; updatedAt: number };
@@ -885,6 +876,21 @@ function FlowInner({ accountId }: { accountId: string }) {
     };
   }, [refreshWorkflows]);
 
+  const starterData = useMemo(
+    () => ({
+      nodes: [
+        {
+          id: "social",
+          type: "social",
+          position: { x: 0, y: 0 },
+          data: { platform: "facebook" },
+        },
+      ],
+      edges: [],
+    }),
+    [],
+  );
+
   // Load nodes/edges when active workflow changes.
   useEffect(() => {
     if (!activeWorkflowId || activeWorkflowId === loadedWorkflowRef.current) return;
@@ -895,12 +901,12 @@ function FlowInner({ accountId }: { accountId: string }) {
       const j = (await r.json()) as { id: string; name: string; data: { nodes: Node[]; edges: Edge[] } };
       if (off) return;
       loadedWorkflowRef.current = j.id;
-      if (j.data?.nodes?.length) {
-        setNodes(j.data.nodes.map((n) => ({ ...n, data: { ...n.data, ...dataFor(n.id) } })));
-      }
-      if (j.data?.edges) {
-        setEdges(j.data.edges);
-      }
+      const nodesIn = j.data?.nodes ?? [];
+      const edgesIn = j.data?.edges ?? [];
+      setNodes(
+        nodesIn.map((n) => ({ ...n, data: { ...n.data, ...dataFor(n.id) } })),
+      );
+      setEdges(edgesIn);
     })();
     return () => {
       off = true;
@@ -937,14 +943,14 @@ function FlowInner({ accountId }: { accountId: string }) {
     const r = await fetch("/api/workflows", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "Untitled workflow", data: { nodes: [], edges: [] } }),
+      body: JSON.stringify({ name: "Untitled workflow", data: starterData }),
     });
     if (!r.ok) return;
     const j = (await r.json()) as { id: string; name: string; updatedAt: number };
     setWorkflows((ws) => [{ id: j.id, name: j.name, updatedAt: j.updatedAt }, ...ws]);
     loadedWorkflowRef.current = null;
     setActiveWorkflowId(j.id);
-  }, []);
+  }, [starterData]);
 
   const deleteWorkflow = useCallback(
     async (id: string) => {
@@ -1162,11 +1168,7 @@ function FlowInner({ accountId }: { accountId: string }) {
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
-                          if (window.confirm(`Delete "${w.name}"?`)) {
-                            deleteWorkflow(w.id);
-                          }
-                        }}
+                        onClick={() => setDeleteTarget({ id: w.id, name: w.name })}
                         className="hidden text-muted-foreground hover:text-destructive group-hover:block"
                         title="Delete"
                         aria-label="Delete workflow"
@@ -1181,6 +1183,33 @@ function FlowInner({ accountId }: { accountId: string }) {
           </div>
         </SheetContent>
       </Sheet>
+
+      <AlertDialog
+        open={deleteTarget !== null}
+        onOpenChange={(v) => !v && setDeleteTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete workflow?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget
+                ? `"${deleteTarget.name}" will be permanently removed. This can't be undone.`
+                : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteTarget) deleteWorkflow(deleteTarget.id);
+                setDeleteTarget(null);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <div
         className={`grid min-h-0 flex-1 grid-cols-1 gap-3 ${showLogs ? "lg:grid-cols-[1fr_360px]" : ""}`}
