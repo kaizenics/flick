@@ -7,8 +7,6 @@ import {
   LayoutDashboard,
   Heart,
   Workflow,
-  FileStack,
-  Smile,
 } from "lucide-react";
 
 import {
@@ -35,8 +33,6 @@ const navMain = [
 const navTools = [
   { title: "Page Engagement", href: "/engagement", icon: Heart, available: true },
   { title: "Automation Flow", href: "/flow", icon: Workflow, available: true },
-  { title: "Page Creation", href: "/page-creation", icon: FileStack, available: false },
-  { title: "Reactions", href: "/reactions", icon: Smile, available: false },
 ];
 
 function SidebarToggle({ className }: { className?: string }) {

@@ -24,6 +24,7 @@ import {
   KeyRound,
   Target as TargetIcon,
   Heart,
+  Smile,
   Play,
   Square,
   Eye,
@@ -70,6 +71,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Plus } from "lucide-react";
 
 type LogEntry = {
   ts: string;
@@ -97,7 +106,8 @@ type NodeKey =
   | "social"
   | "session"
   | "target"
-  | "action";
+  | "action"
+  | "reactions";
 
 type Platform = "facebook" | "instagram" | "threads";
 
@@ -107,23 +117,28 @@ function IconNode({
   icon: Icon,
   label,
   active,
+  running,
   iconClassName,
   onOpen,
   onDelete,
   showLeft = true,
   showRight = true,
   renderIcon,
+  onAdd,
 }: {
   icon?: LucideIcon;
   label: string;
   active?: boolean;
+  running?: boolean;
   iconClassName?: string;
   onOpen: () => void;
   onDelete?: () => void;
   showLeft?: boolean;
   showRight?: boolean;
   renderIcon?: () => React.ReactNode;
+  onAdd?: () => void;
 }) {
+  const greenBorder = active || running;
   return (
     <div className="group relative flex w-28 flex-col items-center">
       {showLeft && (
@@ -138,8 +153,8 @@ function IconNode({
         type="button"
         onClick={onOpen}
         className={`flex size-22 cursor-pointer items-center justify-center rounded-2xl border bg-card shadow-[0_2px_6px_rgba(0,0,0,0.4)] transition-all hover:shadow-[0_4px_12px_rgba(0,0,0,0.5)] ${
-          active
-            ? "border-emerald-500 ring-2 ring-emerald-500/30"
+          greenBorder
+            ? `border-emerald-500 ${active ? "ring-2 ring-emerald-500/30" : ""}`
             : "border-border"
         }`}
         style={{ width: 88, height: 88 }}
@@ -175,6 +190,21 @@ function IconNode({
           className="!size-2.5 !border-2 !border-zinc-600 !bg-zinc-900"
           style={{ top: "44px" }}
         />
+      )}
+      {showRight && onAdd && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onAdd();
+          }}
+          className="absolute z-10 flex size-5 items-center justify-center rounded-full border border-zinc-600 bg-card text-muted-foreground opacity-0 transition-opacity hover:border-emerald-500 hover:text-emerald-500 group-hover:opacity-100"
+          style={{ left: "100%", top: 38, transform: "translateX(-50%)" }}
+          title="Add next node"
+          aria-label="Add next node"
+        >
+          <Plus className="size-3" />
+        </button>
       )}
     </div>
   );
@@ -214,6 +244,7 @@ function SocialMediaNode({ id, data }: NodeProps) {
     platform: Platform;
     onPlatformChange: (id: string, p: Platform) => void;
     onDelete: (id: string) => void;
+    onAdd: () => void;
   };
   const [open, setOpen] = useState(false);
   type PlatformDef = {
@@ -231,10 +262,12 @@ function SocialMediaNode({ id, data }: NodeProps) {
   return (
     <>
       <IconNode
+        running={d.state.status?.running ?? false}
         label="Social Media"
         renderIcon={() => <FacebookIcon className="size-9 text-[#1877F2]" />}
         onOpen={() => setOpen(true)}
         onDelete={() => d.onDelete(id)}
+        onAdd={d.onAdd}
         showLeft={false}
       />
       <NodeDialog
@@ -280,18 +313,21 @@ function SessionNode({ id, data }: NodeProps) {
     state: RunState;
     onLogin: () => void;
     onDelete: (id: string) => void;
+    onAdd: () => void;
   };
   const [open, setOpen] = useState(false);
   const has = d.state.status?.hasSession;
   return (
     <>
       <IconNode
+        running={d.state.status?.running ?? false}
         icon={KeyRound}
         iconClassName="text-amber-500"
         label="Session"
         active={d.state.active === "session"}
         onOpen={() => setOpen(true)}
         onDelete={() => d.onDelete(id)}
+        onAdd={d.onAdd}
       />
       <NodeDialog
         open={open}
@@ -316,17 +352,20 @@ function TargetNode({ id, data }: NodeProps) {
     url: string;
     onUrlChange: (id: string, v: string) => void;
     onDelete: (id: string) => void;
+    onAdd: () => void;
   };
   const [open, setOpen] = useState(false);
   return (
     <>
       <IconNode
+        running={d.state.status?.running ?? false}
         icon={TargetIcon}
         iconClassName="text-rose-500"
         label="Target Page"
         active={d.state.active === "target"}
         onOpen={() => setOpen(true)}
         onDelete={() => d.onDelete(id)}
+        onAdd={d.onAdd}
       />
       <NodeDialog
         open={open}
@@ -357,6 +396,7 @@ function ActionNode({ id, data }: NodeProps) {
   return (
     <>
       <IconNode
+        running={d.state.status?.running ?? false}
         icon={Heart}
         iconClassName="text-pink-500"
         label="Follow / Like"
@@ -379,11 +419,41 @@ function ActionNode({ id, data }: NodeProps) {
   );
 }
 
+function ReactionsNode({ id, data }: NodeProps) {
+  const d = data as { state: RunState; onDelete: (id: string) => void };
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <IconNode
+        running={d.state.status?.running ?? false}
+        icon={Smile}
+        iconClassName="text-yellow-500"
+        label="Reactions"
+        showRight={false}
+        active={d.state.active === "reactions"}
+        onOpen={() => setOpen(true)}
+        onDelete={() => d.onDelete(id)}
+      />
+      <NodeDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Reactions"
+        description="Drops a reaction (Like / Love / Haha / Wow / Sad / Angry) on the target."
+      >
+        <div className="text-xs text-muted-foreground">
+          Reactions automation runs alongside Follow / Like once the run starts.
+        </div>
+      </NodeDialog>
+    </>
+  );
+}
+
 const nodeTypes = {
   social: SocialMediaNode,
   session: SessionNode,
   target: TargetNode,
   action: ActionNode,
+  reactions: ReactionsNode,
 };
 
 /* ---------- palette ---------- */
@@ -398,39 +468,8 @@ const PALETTE: Array<{
   { type: "session", label: "Session", description: "Login + saved cookies", icon: KeyRound },
   { type: "target", label: "Target Page", description: "URL to receive follows", icon: TargetIcon },
   { type: "action", label: "Follow / Like", description: "Try Follow, fall back to Like", icon: Heart },
+  { type: "reactions", label: "Reactions", description: "Drop a reaction on the target", icon: Smile },
 ];
-
-function PaletteItem({
-  type,
-  label,
-  description,
-  icon: Icon,
-}: {
-  type: NodeKey;
-  label: string;
-  description: string;
-  icon: LucideIcon;
-}) {
-  const onDragStart = (e: React.DragEvent) => {
-    e.dataTransfer.setData("application/x-fbauto-node", type);
-    e.dataTransfer.effectAllowed = "move";
-  };
-  return (
-    <div
-      draggable
-      onDragStart={onDragStart}
-      className="flex cursor-grab items-center gap-2 rounded-md border border-border bg-background p-2 text-xs shadow-sm hover:border-foreground/40 active:cursor-grabbing"
-    >
-      <Icon className="size-4 shrink-0 text-muted-foreground" />
-      <div className="min-w-0">
-        <div className="truncate font-medium">{label}</div>
-        <div className="truncate text-[10px] text-muted-foreground">
-          {description}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 /* ---------- main ---------- */
 
@@ -439,6 +478,69 @@ export default function AutomationFlow({ accountId = "default" }: { accountId?: 
     <ReactFlowProvider>
       <FlowInner accountId={accountId} />
     </ReactFlowProvider>
+  );
+}
+
+function WorkflowTitle({
+  name,
+  disabled,
+  onRename,
+}: {
+  name: string;
+  disabled?: boolean;
+  onRename: (next: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(name);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!editing) setDraft(name);
+  }, [name, editing]);
+
+  useEffect(() => {
+    if (editing) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [editing]);
+
+  const commit = () => {
+    const next = draft.trim();
+    setEditing(false);
+    if (next && next !== name) onRename(next);
+    else setDraft(name);
+  };
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commit();
+          else if (e.key === "Escape") {
+            setDraft(name);
+            setEditing(false);
+          }
+        }}
+        className="w-64 rounded-md border border-border bg-background px-2 py-1 text-xl font-semibold tracking-tight outline-none focus:border-foreground/40"
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={() => setEditing(true)}
+      className="rounded-md px-2 py-1 -mx-2 text-xl font-semibold tracking-tight hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-60"
+      title={disabled ? undefined : "Click to rename"}
+    >
+      {name}
+    </button>
   );
 }
 
@@ -451,6 +553,13 @@ function FlowInner({ accountId }: { accountId: string }) {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [headed, setHeaded] = useState(false);
   const [fast, setFast] = useState(true);
+  const [showLogs, setShowLogs] = useState(true);
+  const [showWorkflows, setShowWorkflows] = useState(false);
+  const [workflows, setWorkflows] = useState<
+    Array<{ id: string; name: string; updatedAt: number }>
+  >([]);
+  const [activeWorkflowId, setActiveWorkflowId] = useState<string | null>(null);
+  const loadedWorkflowRef = useRef<string | null>(null);
   const logsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -609,32 +718,40 @@ function FlowInner({ accountId }: { accountId: string }) {
   const onStop = useCallback(() => post("/api/automation/stop"), [post]);
 
   const deleteNodeRef = useRef<(id: string) => void>(() => {});
+  const addPickerRef = useRef<(sourceId: string) => void>(() => {});
+  const [pickerSourceId, setPickerSourceId] = useState<string | null>(null);
 
   const dataFor = useCallback(
     (id: string): Record<string, unknown> => {
       const onDelete = (nodeId: string) => deleteNodeRef.current(nodeId);
+      const onAdd = () => addPickerRef.current(id);
       const type = id.split("-")[0];
       switch (type) {
         case "social":
-          return { state, platform: "facebook" as Platform, onPlatformChange, onDelete };
+          return { state, platform: "facebook" as Platform, onPlatformChange, onDelete, onAdd };
         case "session":
-          return { state, onLogin, onDelete };
+          return { state, onLogin, onDelete, onAdd };
         case "target":
-          return { state, onUrlChange: onTargetUrlChange, onDelete };
+          return { state, onUrlChange: onTargetUrlChange, onDelete, onAdd };
         default:
-          return { state, onDelete };
+          return { state, onDelete, onAdd };
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [state, headed, fast, onLogin, onStart, onStop, onTargetUrlChange, onPlatformChange],
   );
 
+  useEffect(() => {
+    addPickerRef.current = (sourceId) => setPickerSourceId(sourceId);
+  }, []);
+
   const initialNodes = useMemo<Node[]>(() => {
     const layout: Array<{ id: string; type: string; x: number; y: number }> = [
       { id: "social", type: "social", x: -200, y: 0 },
       { id: "session", type: "session", x: 0, y: 0 },
       { id: "target", type: "target", x: 200, y: 0 },
-      { id: "action", type: "action", x: 400, y: 180 },
+      { id: "action", type: "action", x: 400, y: 60 },
+      { id: "reactions", type: "reactions", x: 400, y: 240 },
     ];
     return layout.map((n) => ({
       id: n.id,
@@ -650,6 +767,7 @@ function FlowInner({ accountId }: { accountId: string }) {
       { id: "e0", source: "social", target: "session" },
       { id: "e1", source: "session", target: "target" },
       { id: "e2", source: "target", target: "action" },
+      { id: "e3", source: "target", target: "reactions" },
     ],
     [],
   );
@@ -720,14 +838,193 @@ function FlowInner({ accountId }: { accountId: string }) {
   }, [config, dataFor, setNodes]);
 
   useEffect(() => {
-    setEdges((prev) => prev.map((e) => ({ ...e, animated: !!status?.running })));
+    const running = !!status?.running;
+    setEdges((prev) =>
+      prev.map((e) => ({
+        ...e,
+        animated: running,
+        style: { ...(e.style ?? {}), stroke: running ? "#10b981" : undefined },
+      })),
+    );
   }, [status?.running, setEdges]);
 
-  const ALLOWED_CONNECTIONS: Record<string, string> = {
-    social: "session",
-    session: "target",
-    target: "action",
-  };
+  const refreshWorkflows = useCallback(async () => {
+    const r = await fetch("/api/workflows", { cache: "no-store" });
+    if (!r.ok) return;
+    const j = (await r.json()) as { items: Array<{ id: string; name: string; updatedAt: number }> };
+    setWorkflows(j.items);
+    return j.items;
+  }, []);
+
+  // Initial load: fetch list, auto-select most recent or create blank.
+  useEffect(() => {
+    let off = false;
+    (async () => {
+      const items = await refreshWorkflows();
+      if (off || !items) return;
+      if (items.length > 0) {
+        setActiveWorkflowId(items[0].id);
+      } else {
+        const r = await fetch("/api/workflows", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: "My workflow" }),
+        });
+        if (r.ok) {
+          const j = (await r.json()) as { id: string; name: string; updatedAt: number };
+          if (!off) {
+            setWorkflows([{ id: j.id, name: j.name, updatedAt: j.updatedAt }]);
+            setActiveWorkflowId(j.id);
+            loadedWorkflowRef.current = j.id;
+          }
+        }
+      }
+    })();
+    return () => {
+      off = true;
+    };
+  }, [refreshWorkflows]);
+
+  // Load nodes/edges when active workflow changes.
+  useEffect(() => {
+    if (!activeWorkflowId || activeWorkflowId === loadedWorkflowRef.current) return;
+    let off = false;
+    (async () => {
+      const r = await fetch(`/api/workflows/${activeWorkflowId}`, { cache: "no-store" });
+      if (!r.ok) return;
+      const j = (await r.json()) as { id: string; name: string; data: { nodes: Node[]; edges: Edge[] } };
+      if (off) return;
+      loadedWorkflowRef.current = j.id;
+      if (j.data?.nodes?.length) {
+        setNodes(j.data.nodes.map((n) => ({ ...n, data: { ...n.data, ...dataFor(n.id) } })));
+      }
+      if (j.data?.edges) {
+        setEdges(j.data.edges);
+      }
+    })();
+    return () => {
+      off = true;
+    };
+  }, [activeWorkflowId, setNodes, setEdges, dataFor]);
+
+  // Autosave nodes/edges (debounced) for the active workflow.
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!activeWorkflowId || loadedWorkflowRef.current !== activeWorkflowId) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(async () => {
+      // Strip non-serializable function fields from data.
+      const cleanNodes = nodes.map((n) => {
+        const d = (n.data ?? {}) as Record<string, unknown>;
+        const data: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(d)) {
+          if (typeof v !== "function" && k !== "state") data[k] = v;
+        }
+        return { ...n, data };
+      });
+      await fetch(`/api/workflows/${activeWorkflowId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data: { nodes: cleanNodes, edges } }),
+      });
+    }, 600);
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, [nodes, edges, activeWorkflowId]);
+
+  const createWorkflow = useCallback(async () => {
+    const r = await fetch("/api/workflows", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Untitled workflow", data: { nodes: [], edges: [] } }),
+    });
+    if (!r.ok) return;
+    const j = (await r.json()) as { id: string; name: string; updatedAt: number };
+    setWorkflows((ws) => [{ id: j.id, name: j.name, updatedAt: j.updatedAt }, ...ws]);
+    loadedWorkflowRef.current = null;
+    setActiveWorkflowId(j.id);
+  }, []);
+
+  const deleteWorkflow = useCallback(
+    async (id: string) => {
+      await fetch(`/api/workflows/${id}`, { method: "DELETE" });
+      setWorkflows((ws) => ws.filter((w) => w.id !== id));
+      if (activeWorkflowId === id) {
+        loadedWorkflowRef.current = null;
+        setActiveWorkflowId(null);
+      }
+    },
+    [activeWorkflowId],
+  );
+
+  const renameWorkflow = useCallback(
+    async (id: string, name: string) => {
+      await fetch(`/api/workflows/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      setWorkflows((ws) => ws.map((w) => (w.id === id ? { ...w, name } : w)));
+    },
+    [],
+  );
+
+  const ALLOWED_CONNECTIONS: Record<string, string[]> = useMemo(
+    () => ({
+      social: ["session"],
+      session: ["target"],
+      target: ["action", "reactions"],
+    }),
+    [],
+  );
+
+  const pickerSource = useMemo(
+    () => (pickerSourceId ? nodes.find((n) => n.id === pickerSourceId) ?? null : null),
+    [pickerSourceId, nodes],
+  );
+  const pickerOptions = useMemo(() => {
+    if (!pickerSource?.type) return [];
+    const allowed = ALLOWED_CONNECTIONS[pickerSource.type] ?? [];
+    return PALETTE.filter((p) => allowed.includes(p.type));
+  }, [pickerSource, ALLOWED_CONNECTIONS]);
+
+  const addNodeFromPicker = useCallback(
+    (type: NodeKey) => {
+      if (!pickerSource) return;
+      const id = `${type}-${Date.now().toString(36)}`;
+      const baseData = dataFor(id);
+      const data =
+        type === "target"
+          ? { ...baseData, url: "" }
+          : type === "social"
+            ? { ...baseData, platform: "facebook" as Platform }
+            : baseData;
+      const newNode: Node = {
+        id,
+        type,
+        position: {
+          x: pickerSource.position.x + 200,
+          y: pickerSource.position.y,
+        },
+        data,
+      };
+      setNodes((nds) => [...nds, newNode]);
+      setEdges((eds) =>
+        addEdge(
+          {
+            id: `e-${pickerSource.id}-${id}`,
+            source: pickerSource.id,
+            target: id,
+            animated: !!status?.running,
+          },
+          eds,
+        ),
+      );
+      setPickerSourceId(null);
+    },
+    [pickerSource, dataFor, setNodes, setEdges, status?.running],
+  );
 
   const isValidConnection = useCallback(
     (conn: Connection | Edge) => {
@@ -735,7 +1032,7 @@ function FlowInner({ accountId }: { accountId: string }) {
       const src = nodes.find((n) => n.id === conn.source);
       const tgt = nodes.find((n) => n.id === conn.target);
       if (!src?.type || !tgt?.type) return false;
-      return ALLOWED_CONNECTIONS[src.type] === tgt.type;
+      return ALLOWED_CONNECTIONS[src.type]?.includes(tgt.type) ?? false;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [nodes],
@@ -777,8 +1074,34 @@ function FlowInner({ accountId }: { accountId: string }) {
   return (
     <div className="flex h-[calc(100vh-3rem)] flex-col gap-3">
       <header className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold tracking-tight">Automation Flow</h1>
-        <div className="flex items-center gap-2 text-sm">
+        <div className="flex items-center gap-3">
+          <WorkflowTitle
+            name={
+              workflows.find((w) => w.id === activeWorkflowId)?.name ??
+              "Automation Flow"
+            }
+            disabled={!activeWorkflowId}
+            onRename={(next) => {
+              if (!activeWorkflowId) return;
+              renameWorkflow(activeWorkflowId, next);
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => setShowWorkflows(true)}
+            className="rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+          >
+            Add new workflow
+          </button>
+        </div>
+        <div className="flex items-center gap-3 text-sm">
+          <button
+            type="button"
+            onClick={() => setShowLogs((v) => !v)}
+            className="rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+          >
+            {showLogs ? "Hide logs" : "Show logs"}
+          </button>
           <span
             className={`inline-block h-2.5 w-2.5 rounded-full ${
               status?.running ? "bg-emerald-500" : "bg-zinc-400"
@@ -788,21 +1111,80 @@ function FlowInner({ accountId }: { accountId: string }) {
         </div>
       </header>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[200px_1fr_360px]">
-        <aside className="flex min-h-0 flex-col gap-2 rounded-lg border bg-background p-3">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Nodes
+      <Sheet open={showWorkflows} onOpenChange={setShowWorkflows}>
+        <SheetContent side="left">
+          <SheetHeader>
+            <SheetTitle>Workflows</SheetTitle>
+            <SheetDescription>Switch, rename, or create a workflow.</SheetDescription>
+          </SheetHeader>
+          <div className="flex min-h-0 flex-col gap-2 px-4 pb-4">
+            <button
+              type="button"
+              onClick={createWorkflow}
+              className="rounded-md border border-border bg-card px-2 py-1.5 text-left text-xs text-muted-foreground hover:border-foreground/40 hover:text-foreground"
+            >
+              + New workflow
+            </button>
+            <div className="flex min-h-0 flex-col gap-1 overflow-y-auto">
+              {workflows.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No workflows yet.</p>
+              ) : (
+                workflows.map((w) => {
+                  const selected = w.id === activeWorkflowId;
+                  return (
+                    <div
+                      key={w.id}
+                      className={`group flex items-center gap-1 rounded-md border px-2 py-1.5 text-xs transition-colors ${
+                        selected
+                          ? "border-emerald-500 bg-emerald-500/10"
+                          : "border-border hover:border-foreground/40"
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (w.id !== activeWorkflowId) {
+                            loadedWorkflowRef.current = null;
+                            setActiveWorkflowId(w.id);
+                          }
+                          setShowWorkflows(false);
+                        }}
+                        onDoubleClick={() => {
+                          const next = window.prompt("Rename workflow", w.name);
+                          if (next && next.trim() && next !== w.name) {
+                            renameWorkflow(w.id, next.trim());
+                          }
+                        }}
+                        className="min-w-0 flex-1 truncate text-left"
+                        title="Click to load — double-click to rename"
+                      >
+                        {w.name}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm(`Delete "${w.name}"?`)) {
+                            deleteWorkflow(w.id);
+                          }
+                        }}
+                        className="hidden text-muted-foreground hover:text-destructive group-hover:block"
+                        title="Delete"
+                        aria-label="Delete workflow"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
-          <div className="flex flex-col gap-2 overflow-y-auto">
-            {PALETTE.map((p) => (
-              <PaletteItem key={p.type} {...p} />
-            ))}
-          </div>
-          <p className="mt-auto text-[10px] text-muted-foreground">
-            Drag onto the canvas. Click a node icon to configure it. Connect handles
-            to wire them. Select an edge or node and press Backspace to delete.
-          </p>
-        </aside>
+        </SheetContent>
+      </Sheet>
+
+      <div
+        className={`grid min-h-0 flex-1 grid-cols-1 gap-3 ${showLogs ? "lg:grid-cols-[1fr_360px]" : ""}`}
+      >
 
         <div
           className="min-h-0 overflow-hidden rounded-lg border bg-background"
@@ -869,6 +1251,7 @@ function FlowInner({ accountId }: { accountId: string }) {
           </ReactFlow>
         </div>
 
+        {showLogs && (
         <aside className="flex min-h-0 flex-col rounded-lg border bg-background p-3">
           <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             Logs
@@ -899,7 +1282,51 @@ function FlowInner({ accountId }: { accountId: string }) {
             ))}
           </div>
         </aside>
+        )}
       </div>
+
+      <Sheet
+        open={pickerSourceId !== null}
+        onOpenChange={(v) => !v && setPickerSourceId(null)}
+      >
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Add next node</SheetTitle>
+            <SheetDescription>
+              {pickerSource
+                ? `Choose what comes after ${pickerSource.type}.`
+                : "Pick a node."}
+            </SheetDescription>
+          </SheetHeader>
+          <div className="flex flex-col gap-2 px-4 pb-4">
+            {pickerOptions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No further nodes can follow this one.
+              </p>
+            ) : (
+              pickerOptions.map((p) => {
+                const Icon = p.icon;
+                return (
+                  <button
+                    key={p.type}
+                    type="button"
+                    onClick={() => addNodeFromPicker(p.type)}
+                    className="flex items-center gap-3 rounded-md border border-border bg-card p-3 text-left transition-colors hover:border-foreground/40"
+                  >
+                    <Icon className="size-5 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium">{p.label}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {p.description}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

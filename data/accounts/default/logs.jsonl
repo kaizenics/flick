@@ -44,3 +44,17 @@
 {"ts":"2026-04-30T17:03:55.115Z","level":"info","source":"Lani Gonzales","message":"[14/14] Switched. Visiting 1 target(s)…"}
 {"ts":"2026-04-30T17:04:00.565Z","level":"info","status":"followed","source":"Lani Gonzales","target":"https://www.facebook.com/gocraftiv","message":"[14/14] followed"}
 {"ts":"2026-04-30T17:04:00.840Z","level":"info","status":"stopped","message":"Run finished"}
+{"ts":"2026-05-02T16:43:11.152Z","level":"info","status":"started","target":"https://www.facebook.com/gocraftiv","message":"Run started — target=\"https://www.facebook.com/gocraftiv\", auto-discovering sources"}
+{"ts":"2026-05-02T16:43:19.190Z","level":"info","message":"Detected 14 tile(s) in switcher: [\"Kei Autumn\",\"Lani Gonzales\",\"Faith Villanueva\",\"Craftiv\",\"Likha Digitals\",\"Synt Studios\",\"Paolo Cavan\",\"Kiel Kiel\",\"Ayumi Zenia Fernandez\",\"Kenzo Castillo\",\"Leira Dominique Tan\",\"Nathan Ezra Ramos\",\"Kelsey Salazar\",\"Ava Cruz\"]"}
+{"ts":"2026-05-02T16:43:19.207Z","level":"info","message":"Detected 14 Page(s) in this account: Kei Autumn, Lani Gonzales, Faith Villanueva, Craftiv, Likha Digitals, Synt Studios, Paolo Cavan, Kiel Kiel, Ayumi Zenia Fernandez, Kenzo Castillo, Leira Dominique Tan, Nathan Ezra Ramos, Kelsey Salazar, Ava Cruz"}
+{"ts":"2026-05-02T16:43:19.208Z","level":"info","source":"Kei Autumn","message":"[1/14] Switching to \"Kei Autumn\""}
+{"ts":"2026-05-02T16:43:31.454Z","level":"info","source":"Kei Autumn","message":"[1/14] Switched. Visiting 1 target(s)…"}
+{"ts":"2026-05-02T16:43:33.399Z","level":"warn","status":"already-following","source":"Kei Autumn","target":"https://www.facebook.com/gocraftiv","message":"[1/14] already-following"}
+{"ts":"2026-05-02T16:43:33.491Z","level":"info","source":"Lani Gonzales","message":"[2/14] Switching to \"Lani Gonzales\""}
+{"ts":"2026-05-02T16:43:34.916Z","level":"info","status":"stopped","message":"Stop requested"}
+{"ts":"2026-05-02T16:43:36.215Z","level":"info","status":"stopped","message":"Stop requested"}
+{"ts":"2026-05-02T16:43:36.418Z","level":"info","status":"stopped","message":"Stop requested"}
+{"ts":"2026-05-02T16:43:36.612Z","level":"info","status":"stopped","message":"Stop requested"}
+{"ts":"2026-05-02T16:43:36.789Z","level":"info","status":"stopped","message":"Stop requested"}
+{"ts":"2026-05-02T16:43:40.628Z","level":"info","source":"Lani Gonzales","message":"[2/14] Switched. Visiting 1 target(s)…"}
+{"ts":"2026-05-02T16:43:40.843Z","level":"info","status":"stopped","message":"Run finished"}
