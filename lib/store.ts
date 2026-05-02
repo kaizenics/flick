@@ -8,15 +8,21 @@ export type SourcePage = {
   note?: string;
 };
 
+export type ReactionKind = "like" | "love" | "haha" | "wow" | "sad" | "angry";
+
+export type ReactionTarget = { url: string; reaction: ReactionKind };
+
 export type Config = {
   /** Primary target URL (kept for back-compat — equals targetUrls[0]). */
   targetUrl: string;
   /** Full list of targets to follow during a run. */
   targetUrls: string[];
   sources: SourcePage[];
+  /** Post URLs that should receive a chosen reaction. */
+  posts: ReactionTarget[];
 };
 
-const DEFAULT: Config = { targetUrl: "", targetUrls: [], sources: [] };
+const DEFAULT: Config = { targetUrl: "", targetUrls: [], sources: [], posts: [] };
 
 async function ensure(id: string) {
   await fs.mkdir(accountDir(id), { recursive: true });
@@ -53,6 +59,7 @@ export async function readConfig(accountId: string = DEFAULT_ACCOUNT_ID): Promis
       sources: old.sourcePageName
         ? [{ id: crypto.randomUUID(), name: old.sourcePageName }]
         : [],
+      posts: [],
     };
     await fs.writeFile(file, JSON.stringify(migrated, null, 2));
     return migrated;
@@ -60,6 +67,7 @@ export async function readConfig(accountId: string = DEFAULT_ACCOUNT_ID): Promis
 
   // Merge defaults + back-fill targetUrls from targetUrl if missing.
   const cfg = { ...DEFAULT, ...(parsed as Partial<Config>) };
+  if (!Array.isArray(cfg.posts)) cfg.posts = [];
   if ((!cfg.targetUrls || cfg.targetUrls.length === 0) && cfg.targetUrl) {
     cfg.targetUrls = [cfg.targetUrl];
   }

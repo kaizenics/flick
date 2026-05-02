@@ -1,4 +1,6 @@
-import { readConfig, writeConfig, type Config } from "@/lib/store";
+import { readConfig, writeConfig, type Config, type ReactionKind, type ReactionTarget } from "@/lib/store";
+
+const VALID_REACTIONS: ReactionKind[] = ["like", "love", "haha", "wow", "sad", "angry"];
 import { DEFAULT_ACCOUNT_ID } from "@/lib/accounts";
 import crypto from "node:crypto";
 
@@ -31,6 +33,17 @@ export async function PUT(req: Request) {
           note: s.note?.toString(),
         }))
       : current.sources,
+    posts: Array.isArray(body.posts)
+      ? body.posts
+          .map((p): ReactionTarget | null => {
+            const url = String(p?.url ?? "").trim();
+            const reaction = VALID_REACTIONS.includes(p?.reaction as ReactionKind)
+              ? (p.reaction as ReactionKind)
+              : "like";
+            return url ? { url, reaction } : null;
+          })
+          .filter((p): p is ReactionTarget => p !== null)
+      : current.posts,
   };
   await writeConfig(next, accountId);
   return Response.json(next);

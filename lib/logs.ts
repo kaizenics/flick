@@ -16,7 +16,9 @@ export type LogEntry = {
     | "not-supported"
     | "error"
     | "started"
-    | "stopped";
+    | "stopped"
+    | "reacted"
+    | "already-reacted";
   message: string;
 };
 

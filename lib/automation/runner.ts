@@ -7,6 +7,7 @@ import {
 } from "./browser";
 import { switchToPage } from "./pageSwitch";
 import { followPage } from "./follow";
+import { reactToPost } from "./reactions";
 import { discoverOwnedPages } from "./discover";
 import { readConfig } from "../store";
 import { appendLog } from "../logs";
@@ -49,7 +50,9 @@ export async function startRun(
   const targets = (cfg.targetUrls?.length ? cfg.targetUrls : [cfg.targetUrl]).filter(
     (u) => u && u.length > 0,
   );
-  if (targets.length === 0) return { ok: false, reason: "no-target" as const };
+  const posts = (cfg.posts ?? []).filter((p) => p.url && p.url.length > 0);
+  if (targets.length === 0 && posts.length === 0)
+    return { ok: false, reason: "no-target" as const };
 
   state.running = true;
   state.startedAt = new Date().toISOString();
@@ -192,6 +195,49 @@ export async function startRun(
 
           // Brief pause between targets within the same source identity.
           if (t < targets.length - 1) {
+            await randomDelay(
+              opts.speed === "fast" ? 200 : 1500,
+              opts.speed === "fast" ? 600 : 4000,
+            );
+          }
+        }
+
+        // Reactions phase: drop the chosen reaction on each post URL.
+        for (let p = 0; p < posts.length; p++) {
+          if (signal.aborted) break;
+          const post = posts[p];
+          const pProgress =
+            posts.length > 1 ? `${progress}[reaction ${p + 1}/${posts.length}]` : `${progress}[reaction]`;
+
+          try {
+            const result = await reactToPost(page, post.url, post.reaction);
+            appendLog(
+              {
+                level: result.status === "reacted" ? "info" : "warn",
+                status: result.status,
+                source: source.name,
+                target: post.url,
+                message:
+                  result.status === "not-supported"
+                    ? `${pProgress} ${post.reaction} skipped: ${result.reason}`
+                    : `${pProgress} ${post.reaction} ${result.status}`,
+              },
+              accountId,
+            );
+          } catch (err) {
+            appendLog(
+              {
+                level: "error",
+                status: "error",
+                source: source.name,
+                target: post.url,
+                message: `${pProgress} ${err instanceof Error ? err.message : String(err)}`,
+              },
+              accountId,
+            );
+          }
+
+          if (p < posts.length - 1) {
             await randomDelay(
               opts.speed === "fast" ? 200 : 1500,
               opts.speed === "fast" ? 600 : 4000,
