@@ -5,6 +5,7 @@ import {
   ReactFlow,
   Background,
   Controls,
+  ControlButton,
   MiniMap,
   Handle,
   Position,
@@ -19,9 +20,56 @@ import {
   type Connection,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import {
+  KeyRound,
+  Target as TargetIcon,
+  Heart,
+  Play,
+  Square,
+  Eye,
+  EyeOff,
+  Zap,
+  ZapOff,
+  Share2,
+  type LucideIcon,
+} from "lucide-react";
+
+function FacebookIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
+      <path d="M22 12a10 10 0 1 0-11.56 9.88v-6.99H7.9V12h2.54V9.8c0-2.5 1.5-3.89 3.78-3.89 1.1 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.78l-.44 2.89h-2.34v6.99A10 10 0 0 0 22 12z" />
+    </svg>
+  );
+}
+
+function InstagramIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <rect x="2" y="2" width="20" height="20" rx="5" />
+      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+      <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+    </svg>
+  );
+}
+
+function ThreadsIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
+      <path d="M12.18 22h-.04C7.86 21.97 4.6 19.07 3.5 14.79c-.92-3.6-.06-7.27 2.36-10.06C7.74 2.6 10.27 1.49 12.83 1.5h.05c2.55.03 4.5.84 5.95 2.45 1.18 1.31 1.86 3.05 2.07 5.32l-1.99.18c-.16-1.79-.66-3.13-1.55-4.13-1.06-1.18-2.55-1.79-4.5-1.82h-.04c-2 0-3.96.91-5.45 2.55-1.99 2.18-2.66 5.13-1.92 8.07.92 3.55 3.43 5.92 6.7 5.95h.04c1.93-.02 3.41-.51 4.45-1.5.79-.74 1.16-1.7 1.16-2.82 0-1.96-1.62-2.82-3.4-3.04-.16 1.46-.83 2.7-1.85 3.36-.7.45-1.55.62-2.45.5-1.27-.18-2.4-.96-2.96-2.05-.66-1.27-.55-2.7.27-3.78.84-1.1 2.16-1.62 3.7-1.45.9.1 1.84.36 2.83.78-.13-1.13-.5-1.95-1.05-2.41-.65-.55-1.65-.7-2.75-.36-1.04.32-1.95 1.04-2.27 1.95l-1.86-.65c.5-1.43 1.84-2.51 3.55-3.05 1.62-.5 3.13-.27 4.16.6.96.83 1.53 2.18 1.66 3.96 2.34.45 4.23 1.95 4.23 4.96 0 1.66-.6 3.13-1.78 4.25-1.43 1.36-3.41 2.04-5.85 2.06h-.04zm-.85-7.32c-.5 0-1 .15-1.34.6-.36.5-.4 1.16-.1 1.78.27.55.85.91 1.5 1 .56.07 1.07-.04 1.5-.32.66-.43 1.07-1.27 1.18-2.32-.85-.43-1.66-.7-2.5-.74h-.24z" />
+    </svg>
+  );
+}
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type LogEntry = {
   ts: string;
@@ -45,67 +93,220 @@ type RunState = {
   lastResult?: string;
 };
 
-type NodeKey = "session" | "target" | "discover" | "loop" | "switch" | "action" | "control";
+type NodeKey =
+  | "social"
+  | "session"
+  | "target"
+  | "action";
 
-/* ---------- node bodies ---------- */
+type Platform = "facebook" | "instagram" | "threads";
 
-function NodeShell({
-  title,
+/* ---------- icon node shell ---------- */
+
+function IconNode({
+  icon: Icon,
+  label,
   active,
+  iconClassName,
+  onOpen,
   onDelete,
-  children,
+  showLeft = true,
+  showRight = true,
+  renderIcon,
 }: {
-  title: string;
+  icon?: LucideIcon;
+  label: string;
   active?: boolean;
+  iconClassName?: string;
+  onOpen: () => void;
   onDelete?: () => void;
-  children: React.ReactNode;
+  showLeft?: boolean;
+  showRight?: boolean;
+  renderIcon?: () => React.ReactNode;
 }) {
   return (
-    <div
-      className={`group min-w-60 max-w-72 rounded-lg border bg-background shadow-md transition-colors ${
-        active ? "border-emerald-500 ring-2 ring-emerald-500/30" : "border-border"
-      }`}
-    >
-      <div className="flow-drag-handle flex cursor-move select-none items-center justify-between rounded-t-lg border-b border-border bg-muted/40 px-3 py-1.5">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          {title}
-        </span>
-        {onDelete && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete();
-            }}
-            onMouseDown={(e) => e.stopPropagation()}
-            className="opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
-            title="Delete node"
-            aria-label="Delete node"
-          >
-            <span className="text-xs leading-none">✕</span>
-          </button>
-        )}
-      </div>
-      <div className="p-3 text-sm">{children}</div>
+    <div className="group relative flex w-28 flex-col items-center">
+      {showLeft && (
+        <Handle
+          type="target"
+          position={Position.Left}
+          className="!size-2.5 !border-2 !border-zinc-600 !bg-zinc-900"
+          style={{ top: "44px" }}
+        />
+      )}
+      <button
+        type="button"
+        onClick={onOpen}
+        className={`flex size-22 cursor-pointer items-center justify-center rounded-2xl border bg-card shadow-[0_2px_6px_rgba(0,0,0,0.4)] transition-all hover:shadow-[0_4px_12px_rgba(0,0,0,0.5)] ${
+          active
+            ? "border-emerald-500 ring-2 ring-emerald-500/30"
+            : "border-border"
+        }`}
+        style={{ width: 88, height: 88 }}
+        title={`${label} — click to configure`}
+      >
+        {renderIcon ? (
+          renderIcon()
+        ) : Icon ? (
+          <Icon className={`size-9 ${iconClassName ?? "text-zinc-700"}`} />
+        ) : null}
+      </button>
+      <span className="mt-2 max-w-[7rem] text-center text-[12px] font-medium leading-tight text-foreground">
+        {label}
+      </span>
+      {onDelete && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          className="absolute -right-1 top-0 hidden size-5 items-center justify-center rounded-full border border-border bg-card text-xs text-muted-foreground shadow-sm hover:text-destructive group-hover:flex"
+          title="Delete node"
+          aria-label="Delete node"
+        >
+          ✕
+        </button>
+      )}
+      {showRight && (
+        <Handle
+          type="source"
+          position={Position.Right}
+          className="!size-2.5 !border-2 !border-zinc-600 !bg-zinc-900"
+          style={{ top: "44px" }}
+        />
+      )}
     </div>
   );
 }
 
+function NodeDialog({
+  open,
+  onOpenChange,
+  title,
+  description,
+  children,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          {description && <DialogDescription>{description}</DialogDescription>}
+        </DialogHeader>
+        <div className="flex flex-col gap-3 text-sm">{children}</div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ---------- node bodies (icon + dialog) ---------- */
+
+function SocialMediaNode({ id, data }: NodeProps) {
+  const d = data as {
+    state: RunState;
+    platform: Platform;
+    onPlatformChange: (id: string, p: Platform) => void;
+    onDelete: (id: string) => void;
+  };
+  const [open, setOpen] = useState(false);
+  type PlatformDef = {
+    id: Platform;
+    label: string;
+    icon: (p: React.SVGProps<SVGSVGElement>) => React.ReactElement;
+    soon?: boolean;
+  };
+  const platforms: PlatformDef[] = [
+    { id: "facebook", label: "Facebook", icon: FacebookIcon },
+    { id: "instagram", label: "Instagram", icon: InstagramIcon, soon: true },
+    { id: "threads", label: "Threads", icon: ThreadsIcon, soon: true },
+  ];
+  const current = platforms.find((p) => p.id === d.platform) ?? platforms[0];
+  return (
+    <>
+      <IconNode
+        label="Social Media"
+        renderIcon={() => <FacebookIcon className="size-9 text-[#1877F2]" />}
+        onOpen={() => setOpen(true)}
+        onDelete={() => d.onDelete(id)}
+        showLeft={false}
+      />
+      <NodeDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Social Media"
+        description="Choose which platform this flow targets."
+      >
+        <div className="grid grid-cols-3 gap-2">
+          {platforms.map((p) => {
+            const Icon = p.icon;
+            const selected = d.platform === p.id;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                disabled={p.soon}
+                onClick={() => d.onPlatformChange(id, p.id)}
+                className={`relative flex flex-col items-center gap-2 rounded-md border p-3 text-xs transition-colors ${
+                  selected
+                    ? "border-emerald-500 bg-emerald-500/10 text-foreground"
+                    : "border-border hover:border-foreground/40"
+                } ${p.soon ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
+              >
+                <Icon className="size-6" />
+                <span className="font-medium">{p.label}</span>
+                {p.soon && (
+                  <span className="absolute right-1 top-1 rounded bg-muted px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-muted-foreground">
+                    Soon
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </NodeDialog>
+    </>
+  );
+}
+
 function SessionNode({ id, data }: NodeProps) {
-  const d = data as { state: RunState; onLogin: () => void; onDelete: (id: string) => void };
+  const d = data as {
+    state: RunState;
+    onLogin: () => void;
+    onDelete: (id: string) => void;
+  };
+  const [open, setOpen] = useState(false);
   const has = d.state.status?.hasSession;
   return (
-    <NodeShell title="Session" active={d.state.active === "session"} onDelete={() => d.onDelete(id)}>
-      <div className="flex flex-col gap-2">
-        <div className="text-xs">
+    <>
+      <IconNode
+        icon={KeyRound}
+        iconClassName="text-amber-500"
+        label="Session"
+        active={d.state.active === "session"}
+        onOpen={() => setOpen(true)}
+        onDelete={() => d.onDelete(id)}
+      />
+      <NodeDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Session"
+        description="Login + saved cookies for the target platform."
+      >
+        <div className="rounded-md border border-border bg-muted/30 p-3 text-xs">
           {has ? "✓ Saved Facebook session" : "No session yet"}
         </div>
-        <Button size="sm" onClick={d.onLogin}>
+        <Button onClick={d.onLogin}>
           {has ? "Re-login" : "Login to Facebook"}
         </Button>
-      </div>
-      <Handle type="source" position={Position.Right} />
-    </NodeShell>
+      </NodeDialog>
+    </>
   );
 }
 
@@ -116,179 +317,99 @@ function TargetNode({ id, data }: NodeProps) {
     onUrlChange: (id: string, v: string) => void;
     onDelete: (id: string) => void;
   };
+  const [open, setOpen] = useState(false);
   return (
-    <NodeShell title="Target Page" active={d.state.active === "target"} onDelete={() => d.onDelete(id)}>
-      <div className="flex flex-col gap-2">
-        <Label htmlFor={`target-url-${id}`} className="text-xs">
-          URL to receive follows
-        </Label>
-        <Input
-          id={`target-url-${id}`}
-          className="h-8 text-xs"
-          placeholder="https://www.facebook.com/example/"
-          value={d.url ?? ""}
-          onChange={(e) => d.onUrlChange(id, e.target.value)}
-        />
-      </div>
-      <Handle type="target" position={Position.Left} />
-      <Handle type="source" position={Position.Right} />
-    </NodeShell>
-  );
-}
-
-function DiscoverNode({ id, data }: NodeProps) {
-  const d = data as { state: RunState; onDelete: (id: string) => void };
-  const sources = d.state.config?.sources ?? [];
-  return (
-    <NodeShell title="Discover Pages" active={d.state.active === "discover"} onDelete={() => d.onDelete(id)}>
-      <div className="text-xs text-muted-foreground">
-        Opens avatar → &quot;See all profiles&quot; → expands and scrapes tile names.
-      </div>
-      <div className="mt-2 text-xs">
-        Detected:{" "}
-        <span className="font-mono">
-          {sources.length > 0 ? sources.length : "auto on run"}
-        </span>
-      </div>
-      <Handle type="target" position={Position.Left} />
-      <Handle type="source" position={Position.Right} />
-    </NodeShell>
-  );
-}
-
-function LoopNode({ id, data }: NodeProps) {
-  const d = data as { state: RunState; onDelete: (id: string) => void };
-  const c = d.state.current;
-  return (
-    <NodeShell title="For each Page" active={d.state.active === "loop"} onDelete={() => d.onDelete(id)}>
-      <div className="text-xs">
-        {c
-          ? `Iteration ${c.i}/${c.n}${c.source ? ` — ${c.source}` : ""}`
-          : "Idle"}
-      </div>
-      <Handle type="target" position={Position.Left} />
-      <Handle type="source" position={Position.Right} />
-    </NodeShell>
-  );
-}
-
-function SwitchNode({ id, data }: NodeProps) {
-  const d = data as { state: RunState; onDelete: (id: string) => void };
-  return (
-    <NodeShell title="Switch Identity" active={d.state.active === "switch"} onDelete={() => d.onDelete(id)}>
-      <div className="text-xs">
-        {d.state.current?.source ? (
-          <>
-            Now as <span className="font-mono">{d.state.current.source}</span>
-          </>
-        ) : (
-          "Waiting"
-        )}
-      </div>
-      <Handle type="target" position={Position.Left} />
-      <Handle type="source" position={Position.Right} />
-    </NodeShell>
+    <>
+      <IconNode
+        icon={TargetIcon}
+        iconClassName="text-rose-500"
+        label="Target Page"
+        active={d.state.active === "target"}
+        onOpen={() => setOpen(true)}
+        onDelete={() => d.onDelete(id)}
+      />
+      <NodeDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Target Page"
+        description="The page that will receive follows / likes."
+      >
+        <div className="flex flex-col gap-2">
+          <Label htmlFor={`target-url-${id}`} className="text-xs">
+            URL to receive follows
+          </Label>
+          <Input
+            id={`target-url-${id}`}
+            placeholder="https://www.facebook.com/example/"
+            value={d.url ?? ""}
+            onChange={(e) => d.onUrlChange(id, e.target.value)}
+          />
+        </div>
+      </NodeDialog>
+    </>
   );
 }
 
 function ActionNode({ id, data }: NodeProps) {
   const d = data as { state: RunState; onDelete: (id: string) => void };
+  const [open, setOpen] = useState(false);
   const r = d.state.lastResult;
   return (
-    <NodeShell title="Follow / Like" active={d.state.active === "action"} onDelete={() => d.onDelete(id)}>
-      <div className="text-xs">
-        Tries <span className="font-mono">Follow</span>, falls back to{" "}
-        <span className="font-mono">Like</span>.
-      </div>
-      <div className="mt-1 text-xs">
-        Last:{" "}
-        <span className="font-mono">{r ?? "—"}</span>
-      </div>
-      <Handle type="target" position={Position.Left} />
-      <Handle type="source" position={Position.Right} />
-    </NodeShell>
-  );
-}
-
-function ControlNode({ id, data }: NodeProps) {
-  const d = data as {
-    state: RunState;
-    headed: boolean;
-    fast: boolean;
-    onHeaded: (v: boolean) => void;
-    onFast: (v: boolean) => void;
-    onStart: () => void;
-    onStop: () => void;
-    onDelete: (id: string) => void;
-  };
-  const running = d.state.status?.running;
-  return (
-    <NodeShell title="Control" active={running ?? false} onDelete={() => d.onDelete(id)}>
-      <div className="flex flex-col gap-2 text-xs">
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={d.headed}
-            onChange={(e) => d.onHeaded(e.target.checked)}
-          />
-          Show browser
-        </label>
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={d.fast}
-            onChange={(e) => d.onFast(e.target.checked)}
-          />
-          Fast mode
-        </label>
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            disabled={running || !d.state.status?.hasSession}
-            onClick={d.onStart}
-          >
-            Start
-          </Button>
-          <Button size="sm" variant="outline" disabled={!running} onClick={d.onStop}>
-            Stop
-          </Button>
+    <>
+      <IconNode
+        icon={Heart}
+        iconClassName="text-pink-500"
+        label="Follow / Like"
+        showRight={false}
+        active={d.state.active === "action"}
+        onOpen={() => setOpen(true)}
+        onDelete={() => d.onDelete(id)}
+      />
+      <NodeDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Follow / Like"
+        description="Tries Follow first, falls back to Like."
+      >
+        <div className="text-xs">
+          Last result: <span className="font-mono">{r ?? "—"}</span>
         </div>
-      </div>
-      <Handle type="target" position={Position.Left} />
-    </NodeShell>
+      </NodeDialog>
+    </>
   );
 }
 
 const nodeTypes = {
+  social: SocialMediaNode,
   session: SessionNode,
   target: TargetNode,
-  discover: DiscoverNode,
-  loop: LoopNode,
-  switch: SwitchNode,
   action: ActionNode,
-  control: ControlNode,
 };
 
 /* ---------- palette ---------- */
 
-const PALETTE: Array<{ type: NodeKey; label: string; description: string }> = [
-  { type: "session", label: "Session", description: "Login + saved cookies" },
-  { type: "target", label: "Target Page", description: "URL to receive follows" },
-  { type: "discover", label: "Discover Pages", description: "Scrape switcher tiles" },
-  { type: "loop", label: "For each Page", description: "Iterate sources" },
-  { type: "switch", label: "Switch Identity", description: "Click a profile tile" },
-  { type: "action", label: "Follow / Like", description: "Try Follow, fall back to Like" },
-  { type: "control", label: "Control", description: "Start / stop / mode toggles" },
+const PALETTE: Array<{
+  type: NodeKey;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+}> = [
+  { type: "social", label: "Social Media", description: "Pick the platform", icon: Share2 },
+  { type: "session", label: "Session", description: "Login + saved cookies", icon: KeyRound },
+  { type: "target", label: "Target Page", description: "URL to receive follows", icon: TargetIcon },
+  { type: "action", label: "Follow / Like", description: "Try Follow, fall back to Like", icon: Heart },
 ];
 
 function PaletteItem({
   type,
   label,
   description,
+  icon: Icon,
 }: {
   type: NodeKey;
   label: string;
   description: string;
+  icon: LucideIcon;
 }) {
   const onDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData("application/x-fbauto-node", type);
@@ -298,10 +419,15 @@ function PaletteItem({
     <div
       draggable
       onDragStart={onDragStart}
-      className="cursor-grab rounded-md border border-border bg-background p-2 text-xs shadow-sm hover:border-foreground/40 active:cursor-grabbing"
+      className="flex cursor-grab items-center gap-2 rounded-md border border-border bg-background p-2 text-xs shadow-sm hover:border-foreground/40 active:cursor-grabbing"
     >
-      <div className="font-medium">{label}</div>
-      <div className="text-[10px] text-muted-foreground">{description}</div>
+      <Icon className="size-4 shrink-0 text-muted-foreground" />
+      <div className="min-w-0">
+        <div className="truncate font-medium">{label}</div>
+        <div className="truncate text-[10px] text-muted-foreground">
+          {description}
+        </div>
+      </div>
     </div>
   );
 }
@@ -327,7 +453,6 @@ function FlowInner({ accountId }: { accountId: string }) {
   const [fast, setFast] = useState(true);
   const logsRef = useRef<HTMLDivElement>(null);
 
-  // poll status
   useEffect(() => {
     let off = false;
     const tick = async () => {
@@ -342,14 +467,12 @@ function FlowInner({ accountId }: { accountId: string }) {
     };
   }, [qs]);
 
-  // load config
   useEffect(() => {
     fetch(`/api/targets${qs}`)
       .then((r) => r.json())
       .then(setConfig);
   }, [qs]);
 
-  // SSE log stream
   useEffect(() => {
     const es = new EventSource(`/api/logs${qs}`);
     es.addEventListener("snapshot", (e) => {
@@ -370,7 +493,6 @@ function FlowInner({ accountId }: { accountId: string }) {
     if (logsRef.current) logsRef.current.scrollTop = logsRef.current.scrollHeight;
   }, [logs]);
 
-  // derive active node + current iteration from log tail
   const { active, current, lastResult } = useMemo(() => {
     let a: NodeKey | null = null;
     let cur: RunState["current"];
@@ -382,14 +504,17 @@ function FlowInner({ accountId }: { accountId: string }) {
         const mm = m.match(/^\[(\d+)\/(\d+)\]/);
         if (mm) cur = { i: Number(mm[1]), n: Number(mm[2]), source: e.source };
       }
-      if (!last && e.status && ["followed", "liked", "already-following", "already-liked", "not-supported"].includes(e.status)) {
+      if (
+        !last &&
+        e.status &&
+        ["followed", "liked", "already-following", "already-liked", "not-supported"].includes(
+          e.status,
+        )
+      ) {
         last = e.status;
       }
       if (!a) {
-        if (e.status === "started") a = "control";
-        else if (/discover/i.test(m)) a = "discover";
-        else if (/switching to/i.test(m)) a = "switch";
-        else if (/navigating to target/i.test(m)) a = "action";
+        if (/navigating to target/i.test(m)) a = "action";
         else if (/follow|like|already-/i.test(e.status ?? "")) a = "action";
         else if (e.status === "stopped") a = null;
       }
@@ -404,7 +529,6 @@ function FlowInner({ accountId }: { accountId: string }) {
     [status, config, logs, current, active, lastResult],
   );
 
-  // Debounced sync — collects all Target node URLs and PUTs them.
   const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scheduleSync = useCallback(
     (urls: string[]) => {
@@ -420,7 +544,8 @@ function FlowInner({ accountId }: { accountId: string }) {
     [qs],
   );
 
-  // Per-Target-node URL update.
+  const setNodesRef = useRef<((updater: (nds: Node[]) => Node[]) => void) | null>(null);
+
   const onTargetUrlChange = useCallback(
     (nodeId: string, v: string) => {
       setNodesRef.current?.((nds) => {
@@ -440,8 +565,16 @@ function FlowInner({ accountId }: { accountId: string }) {
     [scheduleSync],
   );
 
-  // Forward-declared so dataFor can reference setNodes before it exists.
-  const setNodesRef = useRef<((updater: (nds: Node[]) => Node[]) => void) | null>(null);
+  const onPlatformChange = useCallback((nodeId: string, p: Platform) => {
+    if (p !== "facebook") return;
+    setNodesRef.current?.((nds) =>
+      nds.map((n) =>
+        n.id === nodeId && n.type === "social"
+          ? { ...n, data: { ...n.data, platform: p } }
+          : n,
+      ),
+    );
+  }, []);
 
   const post = useCallback(
     async (path: string, body?: unknown) => {
@@ -458,7 +591,7 @@ function FlowInner({ accountId }: { accountId: string }) {
           "no-target": "Set the Target Page URL first.",
           "not-running": "Nothing is running.",
         };
-        alert(map[data.reason ?? ""] ?? `Request failed (${res.status})`);
+        toast.error(map[data.reason ?? ""] ?? `Request failed (${res.status})`);
       }
     },
     [qs],
@@ -475,68 +608,48 @@ function FlowInner({ accountId }: { accountId: string }) {
   );
   const onStop = useCallback(() => post("/api/automation/stop"), [post]);
 
-  // Forward-declared so dataFor can close over it; assigned once setNodes/setEdges exist.
   const deleteNodeRef = useRef<(id: string) => void>(() => {});
 
   const dataFor = useCallback(
     (id: string): Record<string, unknown> => {
       const onDelete = (nodeId: string) => deleteNodeRef.current(nodeId);
-      // The node's *type* drives data shape, not its id — derive type from id prefix.
       const type = id.split("-")[0];
       switch (type) {
+        case "social":
+          return { state, platform: "facebook" as Platform, onPlatformChange, onDelete };
         case "session":
           return { state, onLogin, onDelete };
         case "target":
           return { state, onUrlChange: onTargetUrlChange, onDelete };
-        case "control":
-          return {
-            state,
-            headed,
-            fast,
-            onHeaded: setHeaded,
-            onFast: setFast,
-            onStart,
-            onStop,
-            onDelete,
-          };
         default:
           return { state, onDelete };
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [state, headed, fast, onLogin, onStart, onStop, onTargetUrlChange],
+    [state, headed, fast, onLogin, onStart, onStop, onTargetUrlChange, onPlatformChange],
   );
 
   const initialNodes = useMemo<Node[]>(() => {
-    const dragHandle = ".flow-drag-handle";
     const layout: Array<{ id: string; type: string; x: number; y: number }> = [
+      { id: "social", type: "social", x: -200, y: 0 },
       { id: "session", type: "session", x: 0, y: 0 },
-      { id: "target", type: "target", x: 320, y: 0 },
-      { id: "discover", type: "discover", x: 640, y: 0 },
-      { id: "loop", type: "loop", x: 960, y: 0 },
-      { id: "switch", type: "switch", x: 320, y: 220 },
-      { id: "action", type: "action", x: 640, y: 220 },
-      { id: "control", type: "control", x: 960, y: 220 },
+      { id: "target", type: "target", x: 200, y: 0 },
+      { id: "action", type: "action", x: 400, y: 180 },
     ];
     return layout.map((n) => ({
       id: n.id,
       type: n.type,
       position: { x: n.x, y: n.y },
-      dragHandle,
       data: dataFor(n.id),
     }));
-    // initial layout only — data is refreshed below
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const initialEdges = useMemo<Edge[]>(
     () => [
+      { id: "e0", source: "social", target: "session" },
       { id: "e1", source: "session", target: "target" },
-      { id: "e2", source: "target", target: "discover" },
-      { id: "e3", source: "discover", target: "loop" },
-      { id: "e4", source: "loop", target: "switch" },
-      { id: "e5", source: "switch", target: "action" },
-      { id: "e6", source: "action", target: "control" },
+      { id: "e2", source: "target", target: "action" },
     ],
     [],
   );
@@ -544,7 +657,6 @@ function FlowInner({ accountId }: { accountId: string }) {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
-  // Expose setNodes via ref so callbacks defined before useNodesState can use it.
   useEffect(() => {
     setNodesRef.current = setNodes;
   }, [setNodes]);
@@ -553,7 +665,6 @@ function FlowInner({ accountId }: { accountId: string }) {
     deleteNodeRef.current = (id: string) => {
       setNodes((nds) => {
         const next = nds.filter((n) => n.id !== id);
-        // If we removed a Target, re-sync the URL list to the server.
         if (nds.find((n) => n.id === id)?.type === "target") {
           const urls = next
             .filter((n) => n.type === "target")
@@ -567,19 +678,20 @@ function FlowInner({ accountId }: { accountId: string }) {
     };
   }, [setNodes, setEdges, scheduleSync]);
 
-  // Refresh node data whenever derived state changes — merges new props
-  // over existing data so per-node fields (like target.url) survive.
   useEffect(() => {
     setNodes((prev) =>
       prev.map((n) => ({ ...n, data: { ...n.data, ...dataFor(n.id) } })),
     );
   }, [dataFor, setNodes]);
 
-  // First time config arrives, seed Target node URLs from config.targetUrls.
   const seededTargetsRef = useRef(false);
   useEffect(() => {
     if (seededTargetsRef.current || !config) return;
-    const urls = config.targetUrls?.length ? config.targetUrls : config.targetUrl ? [config.targetUrl] : [];
+    const urls = config.targetUrls?.length
+      ? config.targetUrls
+      : config.targetUrl
+        ? [config.targetUrl]
+        : [];
     if (urls.length === 0) return;
     seededTargetsRef.current = true;
     setNodes((prev) => {
@@ -591,16 +703,14 @@ function FlowInner({ accountId }: { accountId: string }) {
         i++;
         return { ...n, data: { ...n.data, url } };
       });
-      // If config has more URLs than existing Target nodes, add the rest.
       if (urls.length > targets.length) {
-        const startX = 320;
+        const startX = 200;
         const startY = 0;
         for (let k = targets.length; k < urls.length; k++) {
           updated.push({
             id: `target-${Date.now().toString(36)}-${k}`,
             type: "target",
             position: { x: startX + k * 40, y: startY + (k - targets.length + 1) * 220 },
-            dragHandle: ".flow-drag-handle",
             data: { ...dataFor("target"), url: urls[k] },
           });
         }
@@ -613,12 +723,30 @@ function FlowInner({ accountId }: { accountId: string }) {
     setEdges((prev) => prev.map((e) => ({ ...e, animated: !!status?.running })));
   }, [status?.running, setEdges]);
 
+  const ALLOWED_CONNECTIONS: Record<string, string> = {
+    social: "session",
+    session: "target",
+    target: "action",
+  };
+
+  const isValidConnection = useCallback(
+    (conn: Connection | Edge) => {
+      if (!conn.source || !conn.target) return false;
+      const src = nodes.find((n) => n.id === conn.source);
+      const tgt = nodes.find((n) => n.id === conn.target);
+      if (!src?.type || !tgt?.type) return false;
+      return ALLOWED_CONNECTIONS[src.type] === tgt.type;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [nodes],
+  );
+
   const onConnect = useCallback(
-    (conn: Connection) =>
-      setEdges((eds) =>
-        addEdge({ ...conn, animated: !!status?.running }, eds),
-      ),
-    [setEdges, status?.running],
+    (conn: Connection) => {
+      if (!isValidConnection(conn)) return;
+      setEdges((eds) => addEdge({ ...conn, animated: !!status?.running }, eds));
+    },
+    [setEdges, status?.running, isValidConnection],
   );
 
   const onDragOver = useCallback((e: React.DragEvent) => {
@@ -634,19 +762,14 @@ function FlowInner({ accountId }: { accountId: string }) {
       const position = flow.screenToFlowPosition({ x: e.clientX, y: e.clientY });
       const id = `${type}-${Date.now().toString(36)}`;
       const baseData = dataFor(type);
-      const data = type === "target" ? { ...baseData, url: "" } : baseData;
-      const newNode: Node = {
-        id,
-        type,
-        position,
-        dragHandle: ".flow-drag-handle",
-        data,
-      };
+      const data =
+        type === "target"
+          ? { ...baseData, url: "" }
+          : type === "social"
+            ? { ...baseData, platform: "facebook" as Platform }
+            : baseData;
+      const newNode: Node = { id, type, position, data };
       setNodes((nds) => [...nds, newNode]);
-      if (type === "target") {
-        // New empty target — sync nothing yet (no URL), but ensure subsequent
-        // edits include this slot. The change will fire scheduleSync on edit.
-      }
     },
     [flow, dataFor, setNodes],
   );
@@ -676,8 +799,8 @@ function FlowInner({ accountId }: { accountId: string }) {
             ))}
           </div>
           <p className="mt-auto text-[10px] text-muted-foreground">
-            Drag onto the canvas. Connect handles to wire them. Select an edge or
-            node and press Backspace to delete.
+            Drag onto the canvas. Click a node icon to configure it. Connect handles
+            to wire them. Select an edge or node and press Backspace to delete.
           </p>
         </aside>
 
@@ -692,6 +815,7 @@ function FlowInner({ accountId }: { accountId: string }) {
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
+            isValidConnection={isValidConnection}
             nodeTypes={nodeTypes}
             fitView
             colorMode="dark"
@@ -699,7 +823,48 @@ function FlowInner({ accountId }: { accountId: string }) {
             deleteKeyCode={["Backspace", "Delete"]}
           >
             <Background />
-            <Controls />
+            <Controls>
+              <ControlButton
+                onClick={onStart}
+                disabled={!!status?.running || !status?.hasSession}
+                title={
+                  !status?.hasSession
+                    ? "Login first"
+                    : status?.running
+                      ? "Already running"
+                      : "Start"
+                }
+              >
+                <Play className="size-3.5 text-emerald-600" />
+              </ControlButton>
+              <ControlButton
+                onClick={onStop}
+                disabled={!status?.running}
+                title="Stop"
+              >
+                <Square className="size-3.5 text-rose-600" />
+              </ControlButton>
+              <ControlButton
+                onClick={() => setHeaded((v) => !v)}
+                title={headed ? "Hide browser" : "Show browser"}
+              >
+                {headed ? (
+                  <Eye className="size-3.5 text-sky-600" />
+                ) : (
+                  <EyeOff className="size-3.5" />
+                )}
+              </ControlButton>
+              <ControlButton
+                onClick={() => setFast((v) => !v)}
+                title={fast ? "Fast mode (on)" : "Fast mode (off)"}
+              >
+                {fast ? (
+                  <Zap className="size-3.5 text-amber-500" />
+                ) : (
+                  <ZapOff className="size-3.5" />
+                )}
+              </ControlButton>
+            </Controls>
             <MiniMap pannable zoomable />
           </ReactFlow>
         </div>
