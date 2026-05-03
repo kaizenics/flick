@@ -1,7 +1,7 @@
 import { createClient, type Client } from "@libsql/client";
 
 let _db: Client | null = null;
-let _ensured = false;
+let _schemaPromise: Promise<void> | null = null;
 
 export function db(): Client {
   if (!_db) {
@@ -12,20 +12,30 @@ export function db(): Client {
   return _db;
 }
 
-export async function ensureSchema() {
-  if (_ensured) return;
-  _ensured = true;
-  await db().execute(`
-    CREATE TABLE IF NOT EXISTS workflow (
-      id TEXT PRIMARY KEY,
-      userId TEXT NOT NULL,
-      name TEXT NOT NULL,
-      data TEXT NOT NULL,
-      createdAt INTEGER NOT NULL,
-      updatedAt INTEGER NOT NULL
-    )
-  `);
-  await db().execute(
-    `CREATE INDEX IF NOT EXISTS workflow_user_idx ON workflow(userId, updatedAt DESC)`,
-  );
+export function ensureSchema(): Promise<void> {
+  if (!_schemaPromise) {
+    _schemaPromise = (async () => {
+      await db().execute(`
+        CREATE TABLE IF NOT EXISTS workflow (
+          id TEXT PRIMARY KEY,
+          userId TEXT NOT NULL,
+          name TEXT NOT NULL,
+          data TEXT NOT NULL,
+          createdAt INTEGER NOT NULL,
+          updatedAt INTEGER NOT NULL
+        )
+      `);
+      await db().execute(
+        `CREATE INDEX IF NOT EXISTS workflow_user_idx ON workflow(userId, updatedAt DESC)`,
+      );
+    })().catch((e) => {
+      _schemaPromise = null;
+      throw e;
+    });
+  }
+  return _schemaPromise;
+}
+
+if (process.env.TURSO_DATABASE_URL) {
+  void ensureSchema().catch(() => {});
 }

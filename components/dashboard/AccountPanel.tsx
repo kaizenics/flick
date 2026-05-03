@@ -69,15 +69,23 @@ export default function AccountPanel({
 
   useEffect(() => {
     let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
     const tick = async () => {
-      const r = await fetch(`/api/automation/status${qs}`, { cache: "no-store" });
-      if (!cancelled) setStatus(await r.json());
+      try {
+        const r = await fetch(`/api/automation/status${qs}`, { cache: "no-store" });
+        if (cancelled) return;
+        const next = (await r.json()) as Status;
+        setStatus(next);
+        const delay = next.running ? 2000 : 15000;
+        timer = setTimeout(tick, delay);
+      } catch {
+        if (!cancelled) timer = setTimeout(tick, 15000);
+      }
     };
     tick();
-    const id = setInterval(tick, 2000);
     return () => {
       cancelled = true;
-      clearInterval(id);
+      if (timer) clearTimeout(timer);
     };
   }, [qs]);
 
