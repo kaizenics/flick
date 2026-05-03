@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   Heart,
   Workflow,
+  Repeat2,
 } from "lucide-react";
 
 import {
@@ -33,6 +34,7 @@ const navMain = [
 const navTools = [
   { title: "Page Engagement", href: "/engagement", icon: Heart, available: true },
   { title: "Automation Flow", href: "/flow", icon: Workflow, available: true },
+  { title: "Reposting", href: "/reposting", icon: Repeat2, available: true },
 ];
 
 function SidebarToggle({ className }: { className?: string }) {
