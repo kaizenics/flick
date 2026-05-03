@@ -5,9 +5,12 @@ import {
   Workflow,
   FileStack,
   Smile,
+  Repeat2,
   Activity,
-  Users,
-  Zap,
+  Clock,
+  CircleCheck,
+  LayoutDashboard,
+  ExternalLink,
 } from "lucide-react";
 
 import {
@@ -17,22 +20,46 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { SidebarTrigger } from "@/components/ui/sidebar";
 import {
   Breadcrumb,
   BreadcrumbItem,
   BreadcrumbList,
   BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
+import { listScheduleRecords } from "@/lib/reposting/schedule-store";
 
-const stats = [
-  { label: "Active accounts", value: "12", icon: Users, hint: "+2 this week" },
-  { label: "Runs today", value: "84", icon: Activity, hint: "98% success" },
-  { label: "Avg. throughput", value: "1.4k/h", icon: Zap, hint: "Stable" },
-];
+export const dynamic = "force-dynamic";
+
+function relativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  if (diff < 0) {
+    const futureMin = Math.floor(-diff / 60_000);
+    if (futureMin < 60) return `in ${futureMin}m`;
+    const futureH = Math.floor(futureMin / 60);
+    if (futureH < 24) return `in ${futureH}h`;
+    const futureD = Math.floor(futureH / 24);
+    return `in ${futureD}d`;
+  }
+  const m = Math.floor(diff / 60_000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d === 1) return "Yesterday";
+  if (d < 7) return `${d}d ago`;
+  return new Date(iso).toLocaleDateString();
+}
 
 const tools = [
+  {
+    href: "/reposting",
+    title: "Reposting",
+    description:
+      "Queue YouTube Shorts, generate AI captions, and natively schedule posts to a Facebook Page.",
+    icon: Repeat2,
+    available: true,
+  },
   {
     href: "/engagement",
     title: "Page Engagement",
@@ -65,19 +92,65 @@ const tools = [
   },
 ];
 
-const activity = [
-  { who: "Engagement run", what: "Completed on 8 accounts", when: "2m ago" },
-  { who: "Flow", what: "Updated graph: target-page-x", when: "1h ago" },
-  { who: "Engagement run", what: "Started on 12 accounts", when: "3h ago" },
-  { who: "Account", what: "Session refreshed: ops-04", when: "Yesterday" },
-];
+export default async function DashboardPage() {
+  const records = await listScheduleRecords();
 
-export default function DashboardPage() {
+  const todayStr = new Date().toDateString();
+  const scheduledRecords = records.filter((r) => r.status === "scheduled");
+  const postedRecords = records.filter((r) => r.status === "posted");
+  const postedTodayCount = postedRecords.filter(
+    (r) => r.publishedAt && new Date(r.publishedAt).toDateString() === todayStr,
+  ).length;
+
+  const nextScheduled = [...scheduledRecords].sort(
+    (a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime(),
+  )[0];
+
+  const stats = [
+    {
+      label: "Scheduled",
+      value: String(scheduledRecords.length),
+      icon: Clock,
+      hint: nextScheduled
+        ? `Next: ${new Date(nextScheduled.scheduledAt).toLocaleString()}`
+        : "Nothing pending",
+    },
+    {
+      label: "Posted today",
+      value: String(postedTodayCount),
+      icon: CircleCheck,
+      hint:
+        postedTodayCount === 0
+          ? "No posts yet today"
+          : `${postedTodayCount === 1 ? "post" : "posts"} live on Facebook`,
+    },
+    {
+      label: "Total posts",
+      value: String(postedRecords.length),
+      icon: Activity,
+      hint: `${records.length} record${records.length === 1 ? "" : "s"} all-time`,
+    },
+  ];
+
+  const now = Date.now();
+  const upcoming = [...scheduledRecords]
+    .filter((r) => new Date(r.scheduledAt).getTime() > now)
+    .sort(
+      (a, b) =>
+        new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime(),
+    )
+    .slice(0, 5);
+
+  const recent = [...records]
+    .sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    )
+    .slice(0, 6);
+
   return (
     <div className="flex flex-1 flex-col">
       <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
-        <SidebarTrigger className="-ml-1" />
-        <Separator orientation="vertical" className="mr-2 h-4" />
+        <LayoutDashboard className="size-4" />
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
@@ -93,7 +166,7 @@ export default function DashboardPage() {
             Welcome back
           </h1>
           <p className="text-sm text-muted-foreground">
-            A quiet snapshot of your automation suite.
+            A quiet snapshot of your reposting pipeline.
           </p>
         </div>
 
@@ -110,9 +183,7 @@ export default function DashboardPage() {
                   <div className="text-2xl font-semibold tracking-tight">
                     {s.value}
                   </div>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {s.hint}
-                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">{s.hint}</p>
                 </CardContent>
               </Card>
             );
@@ -120,14 +191,14 @@ export default function DashboardPage() {
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2">
+          <div>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-sm font-medium tracking-tight">Tools</h2>
               <span className="text-xs text-muted-foreground">
                 {tools.filter((t) => t.available).length} available
               </span>
             </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3">
               {tools.map((t) => {
                 const Icon = t.icon;
                 const inner = (
@@ -151,9 +222,7 @@ export default function DashboardPage() {
                           </span>
                         )}
                       </div>
-                      <CardTitle className="mt-3 text-base">
-                        {t.title}
-                      </CardTitle>
+                      <CardTitle className="mt-3 text-base">{t.title}</CardTitle>
                       <CardDescription>{t.description}</CardDescription>
                     </CardHeader>
                   </Card>
@@ -177,31 +246,127 @@ export default function DashboardPage() {
           </div>
 
           <div>
-            <h2 className="mb-3 text-sm font-medium tracking-tight">
-              Recent activity
-            </h2>
-            <Card>
+              <h2 className="mb-3 text-sm font-medium tracking-tight">
+                Upcoming
+              </h2>
+              <Card>
+                <CardContent className="p-0">
+                  {upcoming.length === 0 ? (
+                    <p className="p-4 text-sm text-muted-foreground">
+                      Nothing scheduled. Queue posts in{" "}
+                      <Link href="/reposting" className="underline">
+                        Reposting
+                      </Link>
+                      .
+                    </p>
+                  ) : (
+                    <ul className="divide-y divide-border">
+                      {upcoming.map((r) => (
+                        <li
+                          key={r.fbPostId + r.scheduledAt}
+                          className="flex items-start justify-between gap-3 p-4"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 text-sm font-medium tracking-tight text-amber-500">
+                              <Clock className="size-3.5" />
+                              {new Date(r.scheduledAt).toLocaleString(undefined, {
+                                month: "short",
+                                day: "numeric",
+                                hour: "numeric",
+                                minute: "2-digit",
+                              })}
+                            </div>
+                            <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                              {r.caption || r.url}
+                            </div>
+                          </div>
+                          <span
+                            className="shrink-0 text-xs text-muted-foreground"
+                            title={new Date(r.scheduledAt).toLocaleString()}
+                          >
+                            {relativeTime(r.scheduledAt)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            <div>
+              <h2 className="mb-3 text-sm font-medium tracking-tight">
+                Recent posts
+              </h2>
+              <Card>
               <CardContent className="p-0">
-                <ul className="divide-y divide-border">
-                  {activity.map((a, i) => (
-                    <li
-                      key={i}
-                      className="flex items-start justify-between gap-3 p-4"
-                    >
-                      <div className="min-w-0">
-                        <div className="text-sm font-medium tracking-tight">
-                          {a.who}
-                        </div>
-                        <div className="truncate text-xs text-muted-foreground">
-                          {a.what}
-                        </div>
-                      </div>
-                      <span className="shrink-0 text-xs text-muted-foreground">
-                        {a.when}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                {recent.length === 0 ? (
+                  <p className="p-4 text-sm text-muted-foreground">
+                    No reposting activity yet. Head to{" "}
+                    <Link href="/reposting" className="underline">
+                      Reposting
+                    </Link>{" "}
+                    to schedule your first post.
+                  </p>
+                ) : (
+                  <ul className="divide-y divide-border">
+                    {recent.map((r) => {
+                      const isPosted = r.status === "posted";
+                      const isFailed = r.status === "failed";
+                      const fbUrl = `https://www.facebook.com/${r.fbPostId}`;
+                      return (
+                        <li
+                          key={r.fbPostId + r.createdAt}
+                          className="flex items-start justify-between gap-3 p-4"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 text-sm font-medium tracking-tight">
+                              {isPosted ? (
+                                <span className="flex items-center gap-1 text-green-500">
+                                  <CircleCheck className="size-3.5" /> Posted
+                                </span>
+                              ) : isFailed ? (
+                                <span className="text-red-500">Failed</span>
+                              ) : (
+                                <span className="flex items-center gap-1 text-amber-500">
+                                  <Clock className="size-3.5" /> Scheduled
+                                </span>
+                              )}
+                              {isPosted && (
+                                <a
+                                  href={fbUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-muted-foreground hover:text-foreground"
+                                  title="Open on Facebook"
+                                >
+                                  <ExternalLink className="size-3" />
+                                </a>
+                              )}
+                            </div>
+                            <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                              {r.caption || r.url}
+                            </div>
+                          </div>
+                          <span
+                            className="shrink-0 text-xs text-muted-foreground"
+                            title={new Date(
+                              isPosted && r.publishedAt
+                                ? r.publishedAt
+                                : r.scheduledAt,
+                            ).toLocaleString()}
+                          >
+                            {relativeTime(
+                              isPosted && r.publishedAt
+                                ? r.publishedAt
+                                : r.scheduledAt,
+                            )}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
               </CardContent>
             </Card>
           </div>
