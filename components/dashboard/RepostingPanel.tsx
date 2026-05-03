@@ -189,9 +189,14 @@ export function RepostingPanel() {
       }
     }
     void pollPublishStatus();
+  }, []);
+
+  useEffect(() => {
+    const hasPending = history.some((r) => r.status === "scheduled");
+    if (!hasPending) return;
     const interval = setInterval(() => void pollPublishStatus(), 60_000);
     return () => clearInterval(interval);
-  }, []);
+  }, [history]);
 
   useEffect(() => {
     if (pageId) localStorage.setItem("reposting:pageId", pageId);
