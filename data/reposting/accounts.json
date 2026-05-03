@@ -1,0 +1,14 @@
+[
+  {
+    "id": "default",
+    "name": "Default",
+    "flow": "yt-to-fb",
+    "createdAt": "2026-05-03T21:15:18.768Z"
+  },
+  {
+    "id": "rdclwyl5",
+    "name": "Account 2",
+    "flow": "ig-to-yt",
+    "createdAt": "2026-05-03T21:29:07.710Z"
+  }
+]

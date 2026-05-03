@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
-import { readConfig } from "@/lib/reposting/config-store";
+import { getAccount } from "@/lib/reposting/accounts-store";
+import { readResolvedConfig } from "@/lib/reposting/config-store";
 import {
   listScheduleRecords,
   updateScheduleRecord,
@@ -27,18 +28,23 @@ async function fetchPublishedFlag(
   }
 }
 
-export async function POST() {
+async function requireUserId(): Promise<string | null> {
   const session = await auth.api.getSession({ headers: await headers() });
-  if (!session?.user?.id) {
+  return session?.user?.id ?? null;
+}
+
+export async function POST(
+  _req: Request,
+  ctx: { params: Promise<{ id: string }> },
+) {
+  if (!(await requireUserId()))
     return Response.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const { id: accountId } = await ctx.params;
+  if (!(await getAccount(accountId)))
+    return Response.json({ error: "not-found" }, { status: 404 });
 
-  const cfg = await readConfig();
-  const records = await listScheduleRecords();
-
-  if (!cfg.fbPageAccessToken) {
-    return Response.json({ records });
-  }
+  const cfg = await readResolvedConfig(accountId);
+  const records = await listScheduleRecords(accountId);
 
   const now = Date.now();
   const due = records.filter(
@@ -48,15 +54,25 @@ export async function POST() {
   );
 
   for (const r of due) {
+    if (r.pageId === "youtube") {
+      if (new Date(r.scheduledAt).getTime() <= now) {
+        await updateScheduleRecord(accountId, r.fbPostId, {
+          status: "posted",
+          publishedAt: new Date().toISOString(),
+        });
+      }
+      continue;
+    }
+    if (!cfg.fbPageAccessToken) continue;
     const published = await fetchPublishedFlag(r.fbPostId, cfg.fbPageAccessToken);
     if (published === true) {
-      await updateScheduleRecord(r.fbPostId, {
+      await updateScheduleRecord(accountId, r.fbPostId, {
         status: "posted",
         publishedAt: new Date().toISOString(),
       });
     }
   }
 
-  const fresh = await listScheduleRecords();
+  const fresh = await listScheduleRecords(accountId);
   return Response.json({ records: fresh });
 }

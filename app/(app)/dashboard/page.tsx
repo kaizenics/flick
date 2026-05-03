@@ -27,6 +27,7 @@ import {
   BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
 import { listScheduleRecords } from "@/lib/reposting/schedule-store";
+import { listAccounts } from "@/lib/reposting/accounts-store";
 
 export const dynamic = "force-dynamic";
 
@@ -93,7 +94,11 @@ const tools = [
 ];
 
 export default async function DashboardPage() {
-  const records = await listScheduleRecords();
+  const accounts = await listAccounts();
+  const allRecords = await Promise.all(
+    accounts.map((a) => listScheduleRecords(a.id)),
+  );
+  const records = allRecords.flat();
 
   const todayStr = new Date().toDateString();
   const scheduledRecords = records.filter((r) => r.status === "scheduled");
