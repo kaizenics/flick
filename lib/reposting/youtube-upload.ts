@@ -26,7 +26,7 @@ export async function uploadToYoutube(
     title: args.title.slice(0, 100),
     description: args.description.slice(0, 5000),
     tags: args.tags,
-    categoryId: "22",
+    categoryId: "24",
   };
   const status: Record<string, unknown> = {
     privacyStatus: isScheduled ? "private" : args.privacyStatus ?? "public",

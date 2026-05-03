@@ -2,7 +2,7 @@ import { rm } from "node:fs/promises";
 import type { Flow } from "./accounts-store";
 import { readResolvedConfig } from "./config-store";
 import { downloadVideo } from "./download";
-import { generateCaption } from "./caption";
+import { generateCaption, generateYoutubeMeta } from "./caption";
 import { extractVideoId, getVideoMeta } from "./youtube";
 import { extractReelId, getReelMeta } from "./instagram";
 import { postVideoToFacebookPage } from "./facebook";
@@ -129,26 +129,28 @@ export async function runItem(args: RunItemArgs): Promise<RunItemResult> {
       send({ step: "download", message: `Downloading reel by ${meta.uploader ?? "unknown"}` });
       filePath = await downloadVideo(url);
 
-      send({ step: "caption", message: "Generating caption" });
-      const caption = await generateCaption({
+      send({ step: "caption", message: "Generating YouTube title + description" });
+      const ytMeta = await generateYoutubeMeta({
         title: meta.title,
         description: meta.description,
         apiKey: cfg.openrouterApiKey,
         model: cfg.openrouterModel,
       });
+      const caption = ytMeta.description;
 
       send({
         step: "upload",
         message: sched.isScheduled
-          ? "Uploading and scheduling on YouTube"
-          : "Uploading to YouTube",
+          ? `Uploading and scheduling on YouTube — "${ytMeta.title}"`
+          : `Uploading to YouTube — "${ytMeta.title}"`,
         caption,
       });
       const yt = await uploadToYoutube({
         accountId,
         filePath,
-        title: meta.title.slice(0, 100),
-        description: caption,
+        title: ytMeta.title,
+        description: ytMeta.description,
+        tags: ytMeta.tags,
         scheduledPublishAt: sched.scheduledIso,
       });
 

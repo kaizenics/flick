@@ -8,7 +8,7 @@ export type ReelMeta = {
 };
 
 export function extractReelId(url: string): string | null {
-  const m = url.match(/instagram\.com\/(?:reel|p|tv)\/([\w-]+)/i);
+  const m = url.match(/instagram\.com\/(?:[\w.-]+\/)?(?:reel|reels|p|tv)\/([\w-]+)/i);
   return m ? m[1] : null;
 }
 
