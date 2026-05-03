@@ -253,18 +253,67 @@ but not implemented.)
 
 ---
 
+## Reposting flows
+
+The reposting page supports two flows. Each reposting "account" is bound to one
+flow at creation time and holds its own destination credentials and history.
+
+| Flow | Source | Destination | Credentials needed |
+| --- | --- | --- | --- |
+| `yt-to-fb` | YouTube Shorts URL | Facebook Page | YouTube API key (shared), Facebook Page Access Token + Page ID (per account) |
+| `ig-to-yt` | Instagram Reel URL | YouTube channel | Google OAuth client (shared, env), per-account YouTube channel via OAuth |
+
+Shared credentials (`YouTube API key`, `OpenRouter API key`, `OpenRouter model`)
+live in `data/reposting/shared.json` and are used by every account. Per-account
+credentials live in `data/reposting/<id>/`.
+
+## YouTube OAuth setup (for `ig-to-yt`)
+
+YouTube uploads use OAuth 2.0 with the `youtube.upload` scope. You'll set up an
+OAuth client once; each reposting account then connects its own Google account
+through the in-app **Connect YouTube** button.
+
+1. **Google Cloud Console → APIs & Services → Library** → enable
+   **YouTube Data API v3** (skip if you already enabled it for the search key).
+2. **OAuth consent screen** → External → fill the required fields → add scope
+   `https://www.googleapis.com/auth/youtube.upload`. While in *Testing* mode,
+   add yourself (and any other Google account you'll connect) as test users.
+3. **Credentials → Create Credentials → OAuth client ID**:
+   - Application type: **Web application**
+   - Authorized redirect URIs: `http://localhost:3000/api/reposting/oauth/youtube/callback`
+     (and your production URL when you deploy)
+4. Copy **Client ID** and **Client secret** into `.env.local`:
+   ```
+   YT_OAUTH_CLIENT_ID=...
+   YT_OAUTH_CLIENT_SECRET=...
+   # optional override; defaults to ${BETTER_AUTH_URL}/api/reposting/oauth/youtube/callback
+   # YT_OAUTH_REDIRECT_URI=
+   ```
+5. Restart the dev server. In the app, create an `ig-to-yt` reposting account
+   and click **Connect YouTube** on the destination card. Complete the consent
+   flow. Refresh tokens are stored at
+   `data/reposting/<accountId>/youtube-oauth.json`.
+
+**Quota warning:** the default `videos.insert` quota is **1,600 units per
+upload** against a daily 10,000-unit limit, i.e. ~6 uploads/day per Google
+project. Apply for a YouTube API audit if you need more.
+
+**Channel must be phone-verified** for `videos.insert` to succeed. Verify at
+youtube.com → Settings → Channel status and features.
+
 ## Reposting feature — first run
 
 1. Open `/reposting`.
-2. Fill in **Settings** with your three credentials → Save.
-3. Enter the **Page ID** (from `me/accounts`).
-4. In the queue, paste a YouTube Shorts URL. Either:
-   - Set a **Scheduled at** time at least 11 minutes in the future (FB handles
-     publishing), or
+2. Fill in **Shared settings** (YouTube API key, OpenRouter key) → Save.
+3. Click **+ Add Account** → pick a flow → name it.
+4. **For `yt-to-fb`:** fill the Facebook Page Access Token + Page ID, Save.
+5. **For `ig-to-yt`:** click **Connect YouTube**, complete OAuth.
+6. In the queue, paste a source URL (Shorts or Reel depending on flow):
+   - Set a **Scheduled at** time at least 11 minutes in the future, or
    - Tick **Post now** (publishes immediately).
-5. Click **Schedule all** and watch the activity log:
+7. Click **Schedule all** and watch the activity log:
    `metadata → download → caption → upload → done`.
-6. Verify in **Meta Business Suite → Planner** that the post is queued.
+8. Verify in the destination platform's scheduler.
 
 The browser request stays open for the full pipeline (often 30–60s per item).
 Don't close the tab mid-run.
