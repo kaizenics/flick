@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,6 +45,7 @@ import {
   ArrowRight,
   Link as LinkIcon,
   Unplug,
+  Square,
 } from "lucide-react";
 import { toast } from "sonner";
 import { YoutubeIcon, InstagramIcon, FacebookIcon } from "@/components/icons/brand";
@@ -171,6 +172,7 @@ export function RepostingPanel() {
   // queue & run
   const [items, setItems] = useState<QueueItem[]>([blankRow()]);
   const [running, setRunning] = useState(false);
+  const runAbortRef = useRef<AbortController | null>(null);
   const [log, setLog] = useState<string[]>([]);
   const [history, setHistory] = useState<ScheduledRecord[]>([]);
 
@@ -469,11 +471,15 @@ export function RepostingPanel() {
     setRunning(true);
     append(`Submitting ${valid.length} item(s)…`);
 
+    const ac = new AbortController();
+    runAbortRef.current = ac;
+
     try {
       const res = await fetch(`/api/reposting/accounts/${activeId}/schedule`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pageId, items: valid }),
+        signal: ac.signal,
       });
       if (!res.ok || !res.body) {
         const txt = await res.text().catch(() => "");
@@ -509,15 +515,30 @@ export function RepostingPanel() {
           }
         }
       }
-      toast.success("Pipeline finished");
+      if (ac.signal.aborted) {
+        append("Stopped.");
+        toast.info("Run stopped");
+      } else {
+        toast.success("Pipeline finished");
+      }
       await refreshHistory(activeId);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Unknown error";
-      append(`Error: ${msg}`);
-      toast.error(msg);
+      if (ac.signal.aborted || (e instanceof DOMException && e.name === "AbortError")) {
+        append("Stopped.");
+        toast.info("Run stopped");
+      } else {
+        const msg = e instanceof Error ? e.message : "Unknown error";
+        append(`Error: ${msg}`);
+        toast.error(msg);
+      }
     } finally {
+      runAbortRef.current = null;
       setRunning(false);
     }
+  };
+
+  const stopRun = () => {
+    runAbortRef.current?.abort();
   };
 
   // ---- effects ----
@@ -1005,6 +1026,11 @@ export function RepostingPanel() {
                   <Button onClick={run} disabled={running}>
                     <Send className="size-4" /> {running ? "Running…" : "Schedule all"}
                   </Button>
+                  {running && (
+                    <Button variant="destructive" onClick={stopRun}>
+                      <Square className="size-4" /> Stop
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>

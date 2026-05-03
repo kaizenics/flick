@@ -59,6 +59,10 @@ export async function POST(
         controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n"));
 
       for (let i = 0; i < items.length; i++) {
+        if (req.signal.aborted) {
+          send({ step: "stopped", message: "Run stopped by user" });
+          break;
+        }
         const item = items[i];
         const idx = i + 1;
         try {
@@ -72,15 +76,17 @@ export async function POST(
             send: (e) => send({ idx, url: item.url, ...e }),
           });
 
+          const nowIso = new Date().toISOString();
           await appendScheduleRecord(accountId, {
-            createdAt: new Date().toISOString(),
-            scheduledAt: item.publishNow ? new Date().toISOString() : item.scheduledAt,
+            createdAt: nowIso,
+            scheduledAt: item.publishNow ? nowIso : item.scheduledAt,
             url: item.url,
             videoId: result.videoId,
             pageId: result.destinationPageId,
             fbPostId: result.postId,
             caption: result.caption,
             status: item.publishNow ? "posted" : "scheduled",
+            ...(item.publishNow ? { publishedAt: nowIso } : {}),
           });
         } catch (e) {
           const msg = e instanceof Error ? e.message : "unknown error";
