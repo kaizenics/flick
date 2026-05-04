@@ -10,8 +10,9 @@ export type ScheduledRecord = {
   pageId: string;
   fbPostId: string;
   caption: string;
-  status: "scheduled" | "posted" | "failed";
+  status: "scheduled" | "posted" | "failed" | "deleted";
   publishedAt?: string;
+  deletedAt?: string;
   error?: string;
 };
 

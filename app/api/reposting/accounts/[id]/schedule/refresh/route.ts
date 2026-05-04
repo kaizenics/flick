@@ -11,18 +11,26 @@ export const runtime = "nodejs";
 
 const DUE_GRACE_MS = 30_000;
 
-async function fetchPublishedFlag(
-  fbPostId: string,
-  token: string,
-): Promise<boolean | null> {
+type FbStatus = { exists: true; published: boolean } | { exists: false } | null;
+
+async function fetchFbStatus(fbPostId: string, token: string): Promise<FbStatus> {
   const url = new URL(`https://graph.facebook.com/v21.0/${fbPostId}`);
   url.searchParams.set("fields", "published");
   url.searchParams.set("access_token", token);
   try {
     const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { published?: boolean };
-    return data.published === true;
+    if (res.ok) {
+      const data = (await res.json()) as { published?: boolean };
+      return { exists: true, published: data.published === true };
+    }
+    const data = (await res.json().catch(() => ({}))) as {
+      error?: { code?: number; error_subcode?: number; message?: string };
+    };
+    const err = data.error;
+    if (err && (err.code === 100 || err.code === 803 || /does not exist|cannot be loaded/i.test(err.message ?? ""))) {
+      return { exists: false };
+    }
+    return null;
   } catch {
     return null;
   }
@@ -47,13 +55,11 @@ export async function POST(
   const records = await listScheduleRecords(accountId);
 
   const now = Date.now();
-  const due = records.filter(
-    (r) =>
-      r.status === "scheduled" &&
-      new Date(r.scheduledAt).getTime() <= now + DUE_GRACE_MS,
-  );
+  const scheduled = records.filter((r) => r.status === "scheduled");
 
-  for (const r of due) {
+  for (const r of scheduled) {
+    const isDue = new Date(r.scheduledAt).getTime() <= now + DUE_GRACE_MS;
+
     if (r.pageId === "youtube") {
       if (new Date(r.scheduledAt).getTime() <= now) {
         await updateScheduleRecord(accountId, r.fbPostId, {
@@ -64,8 +70,17 @@ export async function POST(
       continue;
     }
     if (!cfg.fbPageAccessToken) continue;
-    const published = await fetchPublishedFlag(r.fbPostId, cfg.fbPageAccessToken);
-    if (published === true) {
+
+    const status = await fetchFbStatus(r.fbPostId, cfg.fbPageAccessToken);
+    if (!status) continue;
+    if (status.exists === false) {
+      await updateScheduleRecord(accountId, r.fbPostId, {
+        status: "deleted",
+        deletedAt: new Date().toISOString(),
+      });
+      continue;
+    }
+    if (isDue && status.published) {
       await updateScheduleRecord(accountId, r.fbPostId, {
         status: "posted",
         publishedAt: new Date().toISOString(),

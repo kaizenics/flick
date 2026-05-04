@@ -371,13 +371,14 @@ export default async function DashboardPage() {
                     {recent.map((r) => {
                       const isPosted = r.status === "posted";
                       const isFailed = r.status === "failed";
+                      const isDeleted = r.status === "deleted";
                       const destUrl = destinationUrl(r);
                       const destLabel =
                         r.flow === "ig-to-yt" ? "Open on YouTube" : "Open on Facebook";
                       return (
                         <li
                           key={r.fbPostId + r.createdAt}
-                          className="flex items-start justify-between gap-3 p-4"
+                          className={`flex items-start justify-between gap-3 p-4 ${isDeleted ? "opacity-60" : ""}`}
                         >
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 text-sm font-medium tracking-tight">
@@ -387,6 +388,8 @@ export default async function DashboardPage() {
                                 </span>
                               ) : isFailed ? (
                                 <span className="text-red-500">Failed</span>
+                              ) : isDeleted ? (
+                                <span className="text-red-500">Deleted</span>
                               ) : (
                                 <span className="flex items-center gap-1 text-amber-500">
                                   <Clock className="size-3.5" /> Scheduled
@@ -411,7 +414,9 @@ export default async function DashboardPage() {
                                 </a>
                               )}
                             </div>
-                            <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                            <div
+                              className={`mt-0.5 line-clamp-2 text-xs text-muted-foreground ${isDeleted ? "line-through" : ""}`}
+                            >
                               {r.caption || r.url}
                             </div>
                           </div>

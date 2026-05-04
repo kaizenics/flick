@@ -124,6 +124,7 @@ type ScheduledRecord = {
   caption: string;
   status: string;
   publishedAt?: string;
+  deletedAt?: string;
   error?: string;
 };
 
@@ -1061,7 +1062,10 @@ export function RepostingPanel() {
                 ) : (
                   <div className="space-y-2">
                     {history.map((r, i) => (
-                      <div key={i} className="rounded-md border p-3 text-xs">
+                      <div
+                        key={i}
+                        className={`rounded-md border p-3 text-xs ${r.status === "deleted" ? "opacity-60" : ""}`}
+                      >
                         <div className="flex flex-wrap items-center gap-2">
                           {r.status === "posted" ? (
                             <span className="flex items-center gap-1 font-medium text-green-500">
@@ -1075,6 +1079,10 @@ export function RepostingPanel() {
                             <span className="flex items-center gap-1 font-medium text-red-500">
                               <CircleX className="size-4" /> Failed
                             </span>
+                          ) : r.status === "deleted" ? (
+                            <span className="flex items-center gap-1 font-medium text-red-500">
+                              <CircleX className="size-4" /> Deleted
+                            </span>
                           ) : (
                             <span className="font-medium capitalize">{r.status}</span>
                           )}
@@ -1086,10 +1094,23 @@ export function RepostingPanel() {
                               · published {new Date(r.publishedAt).toLocaleString()}
                             </span>
                           )}
+                          {r.deletedAt && (
+                            <span className="text-muted-foreground">
+                              · deleted {new Date(r.deletedAt).toLocaleString()}
+                            </span>
+                          )}
                           <span className="text-muted-foreground">· FB id {r.fbPostId}</span>
                         </div>
-                        <div className="mt-1 truncate">{r.url}</div>
-                        <div className="mt-1 line-clamp-2 text-muted-foreground">{r.caption}</div>
+                        <div
+                          className={`mt-1 truncate ${r.status === "deleted" ? "line-through" : ""}`}
+                        >
+                          {r.url}
+                        </div>
+                        <div
+                          className={`mt-1 line-clamp-2 text-muted-foreground ${r.status === "deleted" ? "line-through" : ""}`}
+                        >
+                          {r.caption}
+                        </div>
                       </div>
                     ))}
                   </div>
