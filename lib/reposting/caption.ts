@@ -27,7 +27,35 @@ async function callLLM(prompt: string, args: CaptionArgs): Promise<string | null
 
 export async function generateCaption(args: CaptionArgs): Promise<string> {
   const out = await callLLM(
-    `Write a short, engaging Facebook caption (under 200 chars) with 3-5 relevant hashtags for this short video. Output the caption only, no preamble. Do not start with phrases like "Video by", "Reel by", or any author attribution.\n\nSource title: ${args.title}\nSource description: ${args.description}`,
+    `You are writing the Facebook caption for a short video. Goal: maximize watch-time and shares so the algorithm pushes the post. Output the caption only, no preamble. Under 200 chars total including hashtags.
+
+Hook craft (pick ONE that fits the clip; don't combine):
+- Open mid-action or with a vivid sensory detail ("That sound when…").
+- Curiosity gap — tease the payoff without spoiling it ("Wait for the end…", "You won't believe what he does at 0:08").
+- Stakes / consequence ("This is why you never…", "The mistake that cost him everything").
+- Bold claim or contrarian POV ("Most people get this wrong.").
+- Direct second-person ("If you've ever felt this, you'll get it.").
+- Pattern interrupt — short, punchy, unexpected.
+First 5-7 words must stop the scroll. No throat-clearing, no "Check out this…", no "Here's a video of…".
+
+Engagement bait that actually works (use sparingly, max one):
+- A genuine question tied to the clip's subject ("Would you have reacted the same?")
+- A "tag a friend who…" only if it's specific and natural.
+
+Hashtags (3-5, end of caption):
+- Mix one broad reach tag (#fyp / #reels / #viral / one platform-fit broad tag) with 2-4 specific subject tags.
+- Specific tags must come from the actual subject of the clip, not vibes.
+
+Hard rules — never violate:
+- Do NOT include any date, year, month name, or day reference (no "April 12", "2026", "yesterday", "this week").
+- Do NOT include author/attribution phrases ("Video by", "Reel by", "@username", "Posted by").
+- Do NOT use vague filler hashtags like #MomentsThatMatter #EverydayMagic #Memories #Throwback #LifeIsBeautiful.
+- No em-dash openers, no stock phrases ("capturing the moment", "what a vibe", "pure magic").
+- No clickbait that the clip can't deliver on — promise must match payload.
+- Write about what is actually happening in the clip.
+
+Source title: ${args.title}
+Source description: ${args.description}`,
     args,
   ).catch(() => null);
   if (out) return out;
@@ -37,14 +65,27 @@ export async function generateCaption(args: CaptionArgs): Promise<string> {
 export async function generateYoutubeMeta(
   args: CaptionArgs,
 ): Promise<{ title: string; description: string; tags: string[] }> {
-  const prompt = `You are writing the title, description, and tags for a YouTube Short re-uploaded from another platform. Based on the source content below, output a JSON object with three fields:
-- "title": a catchy YouTube Shorts title, MAX 80 characters, no quotes, no emojis at the start, no author attribution like "Video by", "Reel by", or "@username". Capture the actual subject of the clip.
-- "description": 2-4 sentences describing the clip plus 4-8 relevant hashtags on the last line. Include "#Shorts" as the first hashtag.
-- "tags": an array of 8-15 short search-friendly keyword strings (1-3 words each, no #). Mix broad ("shorts", "viral") and specific (subject-related) tags. Total combined tag length must stay under 450 characters.
+  const prompt = `You are writing the title, description, and tags for a YouTube Short re-uploaded from another platform. Optimize for YouTube Shorts retention + browse/search surfacing — the title and first sentence determine whether the algorithm keeps pushing it. Output a JSON object with three fields:
+
+- "title": a scroll-stopping YouTube Shorts title, MAX 80 chars. Hook patterns that work on Shorts: curiosity gap ("Wait for the ending…"), bold claim ("Why nobody told you this"), specific number/stakes ("He lost $10K in 7 seconds"), pattern interrupt, or vivid first-action verb. Front-load the payoff. No quotes, no emojis at the start, no author attribution ("Video by", "Reel by", "@user"), no dates.
+
+- "description": 2-4 sentences. Sentence 1 reinforces the hook with a curiosity gap or stakes. Sentence 2-3 add searchable subject context (helps Shorts Browse + suggested). End with 4-8 hashtags on a final line, "#Shorts" first, then specific subject tags. Avoid filler tags (#MomentsThatMatter, #EverydayMagic, #Throwback, #LifeIsBeautiful).
+
+- "tags": 8-15 keyword strings (1-3 words, no "#"), all specific to the clip's subject + 1-2 broad ("shorts", "viral"). Combined length under 450 chars. Tags drive search; make them what someone would actually type.
+
+Algorithm notes (apply to title + description):
+- First 3 words must earn the swipe-up. Don't waste them.
+- Match the language of the audience for that subject (gaming clip → gamer phrasing, cooking → cooking phrasing).
+- Don't promise something the clip can't deliver — retention drops kill ranking.
+
+Hard rules — never violate:
+- No dates, years, month names, or day references anywhere.
+- No author/attribution phrases.
+- Title and description describe the clip's content, not its posting context.
 
 Output ONLY valid JSON, no markdown, no preamble.
 
-Source title (often unhelpful, ignore if it's just an attribution): ${args.title}
+Source title (often unhelpful, ignore if it's just an attribution or date): ${args.title}
 Source description / caption: ${args.description}`;
 
   const raw = await callLLM(prompt, args).catch(() => null);

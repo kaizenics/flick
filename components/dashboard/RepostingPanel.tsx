@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,6 +45,7 @@ import {
   ArrowRight,
   Link as LinkIcon,
   Unplug,
+  Square,
 } from "lucide-react";
 import { toast } from "sonner";
 import { YoutubeIcon, InstagramIcon, FacebookIcon } from "@/components/icons/brand";
@@ -123,6 +124,7 @@ type ScheduledRecord = {
   caption: string;
   status: string;
   publishedAt?: string;
+  deletedAt?: string;
   error?: string;
 };
 
@@ -171,6 +173,7 @@ export function RepostingPanel() {
   // queue & run
   const [items, setItems] = useState<QueueItem[]>([blankRow()]);
   const [running, setRunning] = useState(false);
+  const runAbortRef = useRef<AbortController | null>(null);
   const [log, setLog] = useState<string[]>([]);
   const [history, setHistory] = useState<ScheduledRecord[]>([]);
 
@@ -469,11 +472,15 @@ export function RepostingPanel() {
     setRunning(true);
     append(`Submitting ${valid.length} item(s)…`);
 
+    const ac = new AbortController();
+    runAbortRef.current = ac;
+
     try {
       const res = await fetch(`/api/reposting/accounts/${activeId}/schedule`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pageId, items: valid }),
+        signal: ac.signal,
       });
       if (!res.ok || !res.body) {
         const txt = await res.text().catch(() => "");
@@ -509,15 +516,30 @@ export function RepostingPanel() {
           }
         }
       }
-      toast.success("Pipeline finished");
+      if (ac.signal.aborted) {
+        append("Stopped.");
+        toast.info("Run stopped");
+      } else {
+        toast.success("Pipeline finished");
+      }
       await refreshHistory(activeId);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Unknown error";
-      append(`Error: ${msg}`);
-      toast.error(msg);
+      if (ac.signal.aborted || (e instanceof DOMException && e.name === "AbortError")) {
+        append("Stopped.");
+        toast.info("Run stopped");
+      } else {
+        const msg = e instanceof Error ? e.message : "Unknown error";
+        append(`Error: ${msg}`);
+        toast.error(msg);
+      }
     } finally {
+      runAbortRef.current = null;
       setRunning(false);
     }
+  };
+
+  const stopRun = () => {
+    runAbortRef.current?.abort();
   };
 
   // ---- effects ----
@@ -1005,6 +1027,11 @@ export function RepostingPanel() {
                   <Button onClick={run} disabled={running}>
                     <Send className="size-4" /> {running ? "Running…" : "Schedule all"}
                   </Button>
+                  {running && (
+                    <Button variant="destructive" onClick={stopRun}>
+                      <Square className="size-4" /> Stop
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -1035,7 +1062,10 @@ export function RepostingPanel() {
                 ) : (
                   <div className="space-y-2">
                     {history.map((r, i) => (
-                      <div key={i} className="rounded-md border p-3 text-xs">
+                      <div
+                        key={i}
+                        className={`rounded-md border p-3 text-xs ${r.status === "deleted" ? "opacity-60" : ""}`}
+                      >
                         <div className="flex flex-wrap items-center gap-2">
                           {r.status === "posted" ? (
                             <span className="flex items-center gap-1 font-medium text-green-500">
@@ -1049,6 +1079,10 @@ export function RepostingPanel() {
                             <span className="flex items-center gap-1 font-medium text-red-500">
                               <CircleX className="size-4" /> Failed
                             </span>
+                          ) : r.status === "deleted" ? (
+                            <span className="flex items-center gap-1 font-medium text-red-500">
+                              <CircleX className="size-4" /> Deleted
+                            </span>
                           ) : (
                             <span className="font-medium capitalize">{r.status}</span>
                           )}
@@ -1060,10 +1094,23 @@ export function RepostingPanel() {
                               · published {new Date(r.publishedAt).toLocaleString()}
                             </span>
                           )}
+                          {r.deletedAt && (
+                            <span className="text-muted-foreground">
+                              · deleted {new Date(r.deletedAt).toLocaleString()}
+                            </span>
+                          )}
                           <span className="text-muted-foreground">· FB id {r.fbPostId}</span>
                         </div>
-                        <div className="mt-1 truncate">{r.url}</div>
-                        <div className="mt-1 line-clamp-2 text-muted-foreground">{r.caption}</div>
+                        <div
+                          className={`mt-1 truncate ${r.status === "deleted" ? "line-through" : ""}`}
+                        >
+                          {r.url}
+                        </div>
+                        <div
+                          className={`mt-1 line-clamp-2 text-muted-foreground ${r.status === "deleted" ? "line-through" : ""}`}
+                        >
+                          {r.caption}
+                        </div>
                       </div>
                     ))}
                   </div>

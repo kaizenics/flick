@@ -27,7 +27,12 @@ import {
   BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
 import { listScheduleRecords } from "@/lib/reposting/schedule-store";
-import { listAccounts } from "@/lib/reposting/accounts-store";
+import { listAccounts, type Flow } from "@/lib/reposting/accounts-store";
+import {
+  YoutubeIcon,
+  InstagramIcon,
+  FacebookIcon,
+} from "@/components/icons/brand";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +62,7 @@ const tools = [
     href: "/reposting",
     title: "Reposting",
     description:
-      "Queue YouTube Shorts, generate AI captions, and natively schedule posts to a Facebook Page.",
+      "Cross-platform reposter: YouTube → Facebook and Instagram → YouTube, with AI captions + native scheduling.",
     icon: Repeat2,
     available: true,
   },
@@ -93,19 +98,60 @@ const tools = [
   },
 ];
 
+type EnrichedRecord = Awaited<ReturnType<typeof listScheduleRecords>>[number] & {
+  flow: Flow;
+  accountId: string;
+  accountName: string;
+};
+
+function FlowBadge({ flow }: { flow: Flow }) {
+  if (flow === "yt-to-fb") {
+    return (
+      <span className="inline-flex items-center gap-1 text-muted-foreground">
+        <YoutubeIcon size={12} className="text-[#ff0000]" />
+        <span className="text-[10px]">→</span>
+        <FacebookIcon size={12} className="text-[#1877f2]" />
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-muted-foreground">
+      <InstagramIcon size={12} className="text-[#e4405f]" />
+      <span className="text-[10px]">→</span>
+      <YoutubeIcon size={12} className="text-[#ff0000]" />
+    </span>
+  );
+}
+
+function destinationUrl(r: EnrichedRecord): string {
+  if (r.flow === "ig-to-yt") return `https://youtu.be/${r.fbPostId}`;
+  return `https://www.facebook.com/${r.fbPostId}`;
+}
+
 export default async function DashboardPage() {
   const accounts = await listAccounts();
   const allRecords = await Promise.all(
-    accounts.map((a) => listScheduleRecords(a.id)),
+    accounts.map(async (a) => {
+      const list = await listScheduleRecords(a.id);
+      return list.map(
+        (r): EnrichedRecord => ({
+          ...r,
+          flow: a.flow,
+          accountId: a.id,
+          accountName: a.name,
+        }),
+      );
+    }),
   );
   const records = allRecords.flat();
 
   const todayStr = new Date().toDateString();
   const scheduledRecords = records.filter((r) => r.status === "scheduled");
   const postedRecords = records.filter((r) => r.status === "posted");
-  const postedTodayCount = postedRecords.filter(
-    (r) => r.publishedAt && new Date(r.publishedAt).toDateString() === todayStr,
-  ).length;
+  const postedTodayCount = postedRecords.filter((r) => {
+    const when = r.publishedAt ?? r.createdAt;
+    return new Date(when).toDateString() === todayStr;
+  }).length;
 
   const nextScheduled = [...scheduledRecords].sort(
     (a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime(),
@@ -127,7 +173,7 @@ export default async function DashboardPage() {
       hint:
         postedTodayCount === 0
           ? "No posts yet today"
-          : `${postedTodayCount === 1 ? "post" : "posts"} live on Facebook`,
+          : `${postedTodayCount === 1 ? "post" : "posts"} published today`,
     },
     {
       label: "Total posts",
@@ -272,7 +318,7 @@ export default async function DashboardPage() {
                           className="flex items-start justify-between gap-3 p-4"
                         >
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5 text-sm font-medium tracking-tight text-amber-500">
+                            <div className="flex items-center gap-2 text-sm font-medium tracking-tight text-amber-500">
                               <Clock className="size-3.5" />
                               {new Date(r.scheduledAt).toLocaleString(undefined, {
                                 month: "short",
@@ -280,6 +326,13 @@ export default async function DashboardPage() {
                                 hour: "numeric",
                                 minute: "2-digit",
                               })}
+                              <FlowBadge flow={r.flow} />
+                              <span
+                                className="truncate text-[10px] font-normal text-muted-foreground"
+                                title={r.accountName}
+                              >
+                                {r.accountName}
+                              </span>
                             </div>
                             <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
                               {r.caption || r.url}
@@ -318,38 +371,52 @@ export default async function DashboardPage() {
                     {recent.map((r) => {
                       const isPosted = r.status === "posted";
                       const isFailed = r.status === "failed";
-                      const fbUrl = `https://www.facebook.com/${r.fbPostId}`;
+                      const isDeleted = r.status === "deleted";
+                      const destUrl = destinationUrl(r);
+                      const destLabel =
+                        r.flow === "ig-to-yt" ? "Open on YouTube" : "Open on Facebook";
                       return (
                         <li
                           key={r.fbPostId + r.createdAt}
-                          className="flex items-start justify-between gap-3 p-4"
+                          className={`flex items-start justify-between gap-3 p-4 ${isDeleted ? "opacity-60" : ""}`}
                         >
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5 text-sm font-medium tracking-tight">
+                            <div className="flex items-center gap-2 text-sm font-medium tracking-tight">
                               {isPosted ? (
                                 <span className="flex items-center gap-1 text-green-500">
                                   <CircleCheck className="size-3.5" /> Posted
                                 </span>
                               ) : isFailed ? (
                                 <span className="text-red-500">Failed</span>
+                              ) : isDeleted ? (
+                                <span className="text-red-500">Deleted</span>
                               ) : (
                                 <span className="flex items-center gap-1 text-amber-500">
                                   <Clock className="size-3.5" /> Scheduled
                                 </span>
                               )}
+                              <FlowBadge flow={r.flow} />
+                              <span
+                                className="truncate text-[10px] font-normal text-muted-foreground"
+                                title={r.accountName}
+                              >
+                                {r.accountName}
+                              </span>
                               {isPosted && (
                                 <a
-                                  href={fbUrl}
+                                  href={destUrl}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="text-muted-foreground hover:text-foreground"
-                                  title="Open on Facebook"
+                                  title={destLabel}
                                 >
                                   <ExternalLink className="size-3" />
                                 </a>
                               )}
                             </div>
-                            <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                            <div
+                              className={`mt-0.5 line-clamp-2 text-xs text-muted-foreground ${isDeleted ? "line-through" : ""}`}
+                            >
                               {r.caption || r.url}
                             </div>
                           </div>
