@@ -2,8 +2,8 @@ import { mkdir, readFile, rename, writeFile, access } from "node:fs/promises";
 import { join } from "node:path";
 import { runMigration } from "./migrate";
 
-export type Flow = "yt-to-fb" | "ig-to-yt";
-export const FLOWS: Flow[] = ["yt-to-fb", "ig-to-yt"];
+export type Flow = "yt-to-fb" | "ig-to-yt" | "tt-to-fb";
+export const FLOWS: Flow[] = ["yt-to-fb", "ig-to-yt", "tt-to-fb"];
 
 export type RepostingAccount = {
   id: string;

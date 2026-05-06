@@ -48,7 +48,7 @@ import {
   Square,
 } from "lucide-react";
 import { toast } from "sonner";
-import { YoutubeIcon, InstagramIcon, FacebookIcon } from "@/components/icons/brand";
+import { YoutubeIcon, InstagramIcon, FacebookIcon, TiktokIcon } from "@/components/icons/brand";
 
 type ConfigField = { set: boolean; value: string | null; masked: string | null };
 type PlainField = { set: boolean; value: string | null };
@@ -59,7 +59,7 @@ type SharedConfigMasked = {
   openrouterModel: PlainField;
 };
 
-type Flow = "yt-to-fb" | "ig-to-yt";
+type Flow = "yt-to-fb" | "ig-to-yt" | "tt-to-fb";
 
 type YoutubeOauth =
   | { connected: false }
@@ -87,6 +87,7 @@ type RepostingAccount = {
 const FLOW_LABELS: Record<Flow, string> = {
   "yt-to-fb": "YouTube → Facebook",
   "ig-to-yt": "Instagram → YouTube",
+  "tt-to-fb": "TikTok → Facebook",
 };
 
 function FlowBadge({ flow, size = 14 }: { flow: Flow; size?: number }) {
@@ -94,6 +95,15 @@ function FlowBadge({ flow, size = 14 }: { flow: Flow; size?: number }) {
     return (
       <span className="inline-flex items-center gap-1 text-muted-foreground">
         <YoutubeIcon size={size} className="text-[#ff0000]" />
+        <span className="text-xs">→</span>
+        <FacebookIcon size={size} className="text-[#1877f2]" />
+      </span>
+    );
+  }
+  if (flow === "tt-to-fb") {
+    return (
+      <span className="inline-flex items-center gap-1 text-muted-foreground">
+        <TiktokIcon size={size} />
         <span className="text-xs">→</span>
         <FacebookIcon size={size} className="text-[#1877f2]" />
       </span>
@@ -112,6 +122,8 @@ type QueueItem = {
   url: string;
   scheduledAt: string;
   publishNow: boolean;
+  caption?: string;
+  comment?: string;
 };
 
 type ScheduledRecord = {
@@ -169,6 +181,7 @@ export function RepostingPanel() {
     | null
   >(null);
   const [deleteDialogId, setDeleteDialogId] = useState<string | null>(null);
+  const [switchOpen, setSwitchOpen] = useState(false);
 
   // queue & run
   const [items, setItems] = useState<QueueItem[]>([blankRow()]);
@@ -451,7 +464,9 @@ export function RepostingPanel() {
       toast.error("Select or create a reposting account first");
       return;
     }
-    if (activeAccount.flow === "yt-to-fb" && !pageId.trim()) {
+    const needsFbPage =
+      activeAccount.flow === "yt-to-fb" || activeAccount.flow === "tt-to-fb";
+    if (needsFbPage && !pageId.trim()) {
       toast.error("Enter a Facebook Page ID");
       return;
     }
@@ -464,7 +479,9 @@ export function RepostingPanel() {
       toast.error(
         activeAccount.flow === "yt-to-fb"
           ? "Add at least one YouTube URL"
-          : "Add at least one Instagram Reel URL",
+          : activeAccount.flow === "ig-to-yt"
+            ? "Add at least one Instagram Reel URL"
+            : "Add at least one TikTok URL",
       );
       return;
     }
@@ -610,76 +627,50 @@ export function RepostingPanel() {
           <Repeat2 className="size-4" />
           <h1 className="text-sm font-medium">Reposting</h1>
         </div>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          {activeAccount ? (
+            <div className="inline-flex items-center gap-2 rounded-md border border-primary bg-primary/10 px-2.5 py-1 text-xs">
+              <FlowBadge flow={activeAccount.flow} />
+              <span className="font-medium">{activeAccount.name}</span>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={openRenameDialog}
+                disabled={running}
+                title="Rename"
+                className="size-5"
+              >
+                <Pencil className="size-3" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => setDeleteDialogId(activeId)}
+                disabled={running}
+                title="Delete"
+                className="size-5"
+              >
+                <Trash2 className="size-3" />
+              </Button>
+            </div>
+          ) : (
+            <span className="text-xs text-muted-foreground">No account selected</span>
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setSwitchOpen(true)}
+            disabled={running || accounts.length === 0}
+          >
+            <ArrowRight className="size-4" /> Switch account
+          </Button>
+          <Button size="sm" variant="outline" onClick={openCreateDialog} disabled={running}>
+            <Plus className="size-4" /> Add Account
+          </Button>
+        </div>
       </header>
 
       <main className="flex-1 space-y-6 p-6">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight">Cross-Platform Reposter</h2>
-          <p className="text-sm text-muted-foreground">
-            Pull short videos from one platform, let AI write the caption, schedule the post on
-            another. Each account is bound to a flow (YouTube → Facebook, Instagram → YouTube)
-            and holds its own destination + history. Shared API keys live below.
-          </p>
-        </div>
-
-        {/* Account selector */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Accounts</CardTitle>
-            <CardDescription>
-              Switch between reposting accounts. Each holds its own Facebook Page Access Token,
-              destination Page, and posting history.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
-              {accounts.map((a) => (
-                <Button
-                  key={a.id}
-                  size="sm"
-                  variant={a.id === activeId ? "default" : "outline"}
-                  onClick={() => setActiveId(a.id)}
-                  disabled={running}
-                  className="gap-2"
-                >
-                  <FlowBadge flow={a.flow} />
-                  {a.name}
-                </Button>
-              ))}
-              <Button size="sm" variant="outline" onClick={openCreateDialog} disabled={running}>
-                <Plus className="size-4" /> Add Account
-              </Button>
-              {activeAccount && (
-                <>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={openRenameDialog}
-                    disabled={running}
-                    title="Rename"
-                  >
-                    <Pencil className="size-4" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setDeleteDialogId(activeId)}
-                    disabled={running}
-                    title="Delete"
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
-                </>
-              )}
-            </div>
-            {!activeAccount && (
-              <p className="text-sm text-muted-foreground">
-                No accounts yet — click <strong>Add Account</strong> to create one.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
         {/* Shared settings */}
         <Card>
           <CardHeader>
@@ -793,7 +784,7 @@ export function RepostingPanel() {
         {/* Per-account: destination + queue + history */}
         {activeAccount && (
           <>
-            {activeAccount.flow === "yt-to-fb" ? (
+            {activeAccount.flow === "yt-to-fb" || activeAccount.flow === "tt-to-fb" ? (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-base">
@@ -933,7 +924,9 @@ export function RepostingPanel() {
                 <CardDescription>
                   {activeAccount.flow === "yt-to-fb"
                     ? "One YouTube Shorts URL per row."
-                    : "One Instagram Reel URL per row (public reels only)."}{" "}
+                    : activeAccount.flow === "tt-to-fb"
+                      ? "One TikTok URL per row. Caption is optional — leave blank to auto-generate with AI."
+                      : "One Instagram Reel URL per row (public reels only)."}{" "}
                   Scheduled time must be 11 minutes – 6 months from now.
                 </CardDescription>
               </CardHeader>
@@ -950,6 +943,10 @@ export function RepostingPanel() {
                             <>
                               <YoutubeIcon size={12} className="text-[#ff0000]" /> YouTube URL
                             </>
+                          ) : activeAccount.flow === "tt-to-fb" ? (
+                            <>
+                              <TiktokIcon size={12} /> TikTok URL
+                            </>
                           ) : (
                             <>
                               <InstagramIcon size={12} className="text-[#e4405f]" /> Instagram Reel URL
@@ -960,12 +957,53 @@ export function RepostingPanel() {
                           placeholder={
                             activeAccount.flow === "yt-to-fb"
                               ? "https://www.youtube.com/shorts/..."
-                              : "https://www.instagram.com/reel/..."
+                              : activeAccount.flow === "tt-to-fb"
+                                ? "https://www.tiktok.com/@user/video/..."
+                                : "https://www.instagram.com/reel/..."
                           }
                           value={item.url}
                           onChange={(e) => updateItem(i, { url: e.target.value })}
                           disabled={running}
                         />
+                        {activeAccount.flow === "tt-to-fb" && (
+                          <div className="mt-2">
+                            <Label className="flex items-center justify-between gap-1 text-xs">
+                              <span>Caption (optional)</span>
+                              {item.caption && (
+                                <button
+                                  type="button"
+                                  onClick={() => updateItem(i, { caption: "" })}
+                                  disabled={running}
+                                  className="text-[10px] text-muted-foreground underline"
+                                >
+                                  Use AI instead
+                                </button>
+                              )}
+                            </Label>
+                            <textarea
+                              placeholder="Leave blank to auto-generate with AI"
+                              value={item.caption ?? ""}
+                              onChange={(e) => updateItem(i, { caption: e.target.value })}
+                              disabled={running}
+                              rows={2}
+                              className="w-full resize-y rounded-md border border-input bg-transparent px-3 py-1.5 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] disabled:opacity-50"
+                            />
+                          </div>
+                        )}
+                        {(activeAccount.flow === "yt-to-fb" ||
+                          activeAccount.flow === "tt-to-fb") && (
+                          <div className="mt-2">
+                            <Label className="text-xs">First comment (optional)</Label>
+                            <textarea
+                              placeholder="Posted as a comment under the video after upload (links, CTAs, hashtags…)"
+                              value={item.comment ?? ""}
+                              onChange={(e) => updateItem(i, { comment: e.target.value })}
+                              disabled={running}
+                              rows={2}
+                              className="w-full resize-y rounded-md border border-input bg-transparent px-3 py-1.5 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] disabled:opacity-50"
+                            />
+                          </div>
+                        )}
                       </div>
                       <div>
                         <Label className="text-xs">Scheduled at</Label>
@@ -1137,8 +1175,8 @@ export function RepostingPanel() {
             {nameDialog?.mode === "create" && (
               <div className="space-y-2">
                 <Label className="text-xs">Flow</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  {(["yt-to-fb", "ig-to-yt"] as const).map((f) => {
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  {(["yt-to-fb", "ig-to-yt", "tt-to-fb"] as const).map((f) => {
                     const selected = nameDialog.flow === f;
                     return (
                       <button
@@ -1212,6 +1250,76 @@ export function RepostingPanel() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={switchOpen} onOpenChange={setSwitchOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Switch reposting account</DialogTitle>
+            <DialogDescription>
+              Pick which account to work with. Your queue, settings, and history reload to match.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] space-y-1 overflow-y-auto">
+            {accounts.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No accounts yet.</p>
+            ) : (
+              [...accounts]
+                .sort((a, b) =>
+                  a.flow === b.flow
+                    ? a.name.localeCompare(b.name)
+                    : a.flow.localeCompare(b.flow),
+                )
+                .map((a) => {
+                  const isActive = a.id === activeId;
+                  return (
+                    <button
+                      key={a.id}
+                      type="button"
+                      onClick={() => {
+                        setActiveId(a.id);
+                        setSwitchOpen(false);
+                      }}
+                      className={`flex w-full items-center justify-between gap-3 rounded-md border px-3 py-2 text-left transition ${
+                        isActive
+                          ? "border-primary bg-primary/10"
+                          : "border-border hover:border-primary/40 hover:bg-accent"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <FlowBadge flow={a.flow} size={16} />
+                        <div>
+                          <div className="text-sm font-medium">{a.name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {FLOW_LABELS[a.flow]}
+                          </div>
+                        </div>
+                      </div>
+                      {isActive && (
+                        <span className="text-[10px] uppercase tracking-wider text-primary">
+                          Active
+                        </span>
+                      )}
+                    </button>
+                  );
+                })
+            )}
+          </div>
+          <DialogFooter className="sm:justify-between">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSwitchOpen(false);
+                openCreateDialog();
+              }}
+            >
+              <Plus className="size-4" /> Add Account
+            </Button>
+            <Button variant="ghost" onClick={() => setSwitchOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
