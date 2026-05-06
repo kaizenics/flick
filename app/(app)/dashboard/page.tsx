@@ -1,11 +1,5 @@
 import Link from "next/link";
 import {
-  ArrowRight,
-  Heart,
-  Workflow,
-  FileStack,
-  Smile,
-  Repeat2,
   Activity,
   Clock,
   CircleCheck,
@@ -18,7 +12,6 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import {
   Breadcrumb,
@@ -56,47 +49,6 @@ function relativeTime(iso: string): string {
   if (d < 7) return `${d}d ago`;
   return new Date(iso).toLocaleDateString();
 }
-
-const tools = [
-  {
-    href: "/reposting",
-    title: "Reposting",
-    description:
-      "Cross-platform reposter: YouTube → Facebook and Instagram → YouTube, with AI captions + native scheduling.",
-    icon: Repeat2,
-    available: true,
-  },
-  {
-    href: "/engagement",
-    title: "Page Engagement",
-    description:
-      "Follow, like, and engage with a target Page across multiple accounts.",
-    icon: Heart,
-    available: true,
-  },
-  {
-    href: "/flow",
-    title: "Automation Flow",
-    description:
-      "Node-based view of the engagement pipeline with live execution highlighting.",
-    icon: Workflow,
-    available: true,
-  },
-  {
-    href: "/page-creation",
-    title: "Page Creation",
-    description: "Spin up new Facebook Pages in bulk from a logged-in account.",
-    icon: FileStack,
-    available: false,
-  },
-  {
-    href: "/reactions",
-    title: "Reactions",
-    description: "Drop reactions on a target post from each of your owned Pages.",
-    icon: Smile,
-    available: false,
-  },
-];
 
 type EnrichedRecord = Awaited<ReturnType<typeof listScheduleRecords>>[number] & {
   flow: Flow;
@@ -198,6 +150,14 @@ export default async function DashboardPage() {
     )
     .slice(0, 6);
 
+  const posted = [...postedRecords]
+    .sort((a, b) => {
+      const aT = new Date(a.publishedAt ?? a.scheduledAt).getTime();
+      const bT = new Date(b.publishedAt ?? b.scheduledAt).getTime();
+      return bT - aT;
+    })
+    .slice(0, 8);
+
   return (
     <div className="flex flex-1 flex-col">
       <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
@@ -244,56 +204,74 @@ export default async function DashboardPage() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div>
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-medium tracking-tight">Tools</h2>
+              <h2 className="text-sm font-medium tracking-tight">Posted</h2>
               <span className="text-xs text-muted-foreground">
-                {tools.filter((t) => t.available).length} available
+                {postedRecords.length} all-time
               </span>
             </div>
-            <div className="grid grid-cols-1 gap-3">
-              {tools.map((t) => {
-                const Icon = t.icon;
-                const inner = (
-                  <Card
-                    className={
-                      t.available
-                        ? "h-full cursor-pointer transition-colors group-hover:border-foreground/40"
-                        : "h-full opacity-60"
-                    }
-                  >
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <div className="flex size-9 items-center justify-center rounded-lg border border-border bg-card">
-                          <Icon className="size-4" />
-                        </div>
-                        {t.available ? (
-                          <ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-                        ) : (
-                          <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                            Soon
-                          </span>
-                        )}
-                      </div>
-                      <CardTitle className="mt-3 text-base">{t.title}</CardTitle>
-                      <CardDescription>{t.description}</CardDescription>
-                    </CardHeader>
-                  </Card>
-                );
-
-                return t.available ? (
-                  <Link
-                    key={t.href}
-                    href={t.href}
-                    className="group block focus:outline-none"
-                  >
-                    {inner}
-                  </Link>
+            <Card>
+              <CardContent className="p-0">
+                {posted.length === 0 ? (
+                  <p className="p-4 text-sm text-muted-foreground">
+                    Nothing posted yet. Posts here flip from <em>Scheduled</em>{" "}
+                    once their scheduled time passes.
+                  </p>
                 ) : (
-                  <div key={t.href} className="group block">
-                    {inner}
-                  </div>
-                );
-              })}
-            </div>
+                  <ul className="divide-y divide-border">
+                    {posted.map((r) => {
+                      const destUrl = destinationUrl(r);
+                      const destLabel =
+                        r.flow === "ig-to-yt" ? "Open on YouTube" : "Open on Facebook";
+                      const ts = r.publishedAt ?? r.scheduledAt;
+                      return (
+                        <li
+                          key={r.fbPostId + r.createdAt}
+                          className="flex items-start justify-between gap-3 p-4"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 text-sm font-medium tracking-tight">
+                              <span className="flex items-center gap-1 text-green-500">
+                                <CircleCheck className="size-3.5" /> Posted
+                              </span>
+                              <FlowBadge flow={r.flow} />
+                              <span
+                                className="truncate text-[10px] font-normal text-muted-foreground"
+                                title={r.accountName}
+                              >
+                                {r.accountName}
+                              </span>
+                              <a
+                                href={destUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-muted-foreground hover:text-foreground"
+                                title={destLabel}
+                              >
+                                <ExternalLink className="size-3" />
+                              </a>
+                            </div>
+                            <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                              {r.caption || r.url}
+                            </div>
+                          </div>
+                          <span
+                            className="shrink-0 text-xs text-muted-foreground"
+                            title={new Date(ts).toLocaleString()}
+                          >
+                            {new Date(ts).toLocaleString(undefined, {
+                              month: "short",
+                              day: "numeric",
+                              hour: "numeric",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
           </div>
 
           <div>

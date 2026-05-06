@@ -45,3 +45,4 @@ next-env.d.ts
 /data/logs.jsonl
 /data/reposting-config.json
 /data/reposting-schedule.jsonl
+/data/reposting/default/config.json

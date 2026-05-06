@@ -80,7 +80,11 @@ export async function POST(
       });
       continue;
     }
-    if (isDue && status.published) {
+    // FB's `published` flag on video objects is unreliable after auto-publish,
+    // so once the scheduled time has passed and the post still exists, treat
+    // it as posted. Explicit `published === true` accelerates the flip when
+    // FB is honest about it.
+    if (isDue && (status.published || new Date(r.scheduledAt).getTime() <= now)) {
       await updateScheduleRecord(accountId, r.fbPostId, {
         status: "posted",
         publishedAt: new Date().toISOString(),
