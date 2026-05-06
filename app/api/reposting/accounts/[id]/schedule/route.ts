@@ -11,6 +11,8 @@ type Item = {
   url: string;
   scheduledAt: string;
   publishNow?: boolean;
+  caption?: string;
+  comment?: string;
 };
 
 async function requireUserId(): Promise<string | null> {
@@ -49,7 +51,8 @@ export async function POST(
   const items = body.items ?? [];
   if (items.length === 0)
     return Response.json({ error: "no items" }, { status: 400 });
-  if (account.flow === "yt-to-fb" && !fbPageId)
+  const needsFbPage = account.flow === "yt-to-fb" || account.flow === "tt-to-fb";
+  if (needsFbPage && !fbPageId)
     return Response.json({ error: "pageId required" }, { status: 400 });
 
   const encoder = new TextEncoder();
@@ -73,6 +76,8 @@ export async function POST(
             scheduledAt: item.scheduledAt,
             publishNow: item.publishNow,
             fbPageId,
+            manualCaption: item.caption,
+            comment: item.comment,
             send: (e) => send({ idx, url: item.url, ...e }),
           });
 

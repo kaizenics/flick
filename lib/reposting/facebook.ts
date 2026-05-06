@@ -30,3 +30,27 @@ export async function postVideoToFacebookPage(args: {
   const data = (await res.json()) as { id?: string; post_id?: string };
   return data.post_id ?? data.id ?? "unknown";
 }
+
+export async function commentOnFacebookPost(args: {
+  postId: string;
+  pageAccessToken: string;
+  message: string;
+}): Promise<string> {
+  const body = new URLSearchParams({
+    message: args.message,
+    access_token: args.pageAccessToken,
+  });
+  const res = await fetch(
+    `https://graph.facebook.com/v21.0/${args.postId}/comments`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+    },
+  );
+  if (!res.ok) {
+    throw new Error(`Facebook comment failed: ${res.status} ${await res.text()}`);
+  }
+  const data = (await res.json()) as { id?: string };
+  return data.id ?? "unknown";
+}

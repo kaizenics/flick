@@ -5,7 +5,8 @@ import { downloadVideo } from "./download";
 import { generateCaption, generateYoutubeMeta } from "./caption";
 import { extractVideoId, getVideoMeta } from "./youtube";
 import { extractReelId, getReelMeta } from "./instagram";
-import { postVideoToFacebookPage } from "./facebook";
+import { extractTiktokId, getTiktokMeta } from "./tiktok";
+import { postVideoToFacebookPage, commentOnFacebookPost } from "./facebook";
 import { uploadToYoutube } from "./youtube-upload";
 
 export type FlowEvent = {
@@ -22,6 +23,10 @@ export type RunItemArgs = {
   scheduledAt?: string;
   publishNow?: boolean;
   fbPageId?: string;
+  /** Optional manual caption — when provided, AI generation is skipped. */
+  manualCaption?: string;
+  /** Optional first comment to post under the video after upload (FB destinations only). */
+  comment?: string;
   send: (e: FlowEvent) => void;
 };
 
@@ -101,6 +106,22 @@ export async function runItem(args: RunItemArgs): Promise<RunItemResult> {
         scheduledPublishTime: sched.scheduledTs,
       });
 
+      if (args.comment?.trim()) {
+        try {
+          send({ step: "upload", message: "Posting first comment" });
+          await commentOnFacebookPost({
+            postId: fbPostId,
+            pageAccessToken: cfg.fbPageAccessToken,
+            message: args.comment.trim(),
+          });
+        } catch (e) {
+          send({
+            step: "error",
+            message: `Comment failed: ${e instanceof Error ? e.message : "unknown"}`,
+          });
+        }
+      }
+
       send({
         step: "done",
         message: sched.isScheduled
@@ -169,6 +190,81 @@ export async function runItem(args: RunItemArgs): Promise<RunItemResult> {
         caption,
         status: sched.isScheduled ? "scheduled" : "posted",
         destinationPageId: "youtube",
+      };
+    }
+
+    if (flow === "tt-to-fb") {
+      if (!args.fbPageId) throw new Error("fbPageId required for tt-to-fb");
+      if (!cfg.fbPageAccessToken)
+        throw new Error("Facebook Page Access Token not configured for this account");
+      const ttId = extractTiktokId(url);
+      if (!ttId) throw new Error(`Invalid TikTok URL: ${url}`);
+
+      send({ step: "metadata", message: "Fetching TikTok metadata" });
+      const meta = await getTiktokMeta(url);
+
+      send({ step: "download", message: `Downloading TikTok by ${meta.uploader ?? "unknown"}` });
+      filePath = await downloadVideo(url);
+
+      let caption = args.manualCaption?.trim();
+      if (caption) {
+        send({ step: "caption", message: "Using your caption" });
+      } else {
+        send({ step: "caption", message: "Generating caption with AI" });
+        caption = await generateCaption({
+          title: meta.title,
+          description: meta.description,
+          apiKey: cfg.openrouterApiKey,
+          model: cfg.openrouterModel,
+        });
+      }
+
+      send({
+        step: "upload",
+        message: sched.isScheduled
+          ? "Uploading and scheduling on Facebook"
+          : "Uploading to Facebook",
+        caption,
+      });
+      const fbPostId = await postVideoToFacebookPage({
+        pageId: args.fbPageId,
+        pageAccessToken: cfg.fbPageAccessToken,
+        filePath,
+        description: caption,
+        scheduledPublishTime: sched.scheduledTs,
+      });
+
+      if (args.comment?.trim()) {
+        try {
+          send({ step: "upload", message: "Posting first comment" });
+          await commentOnFacebookPost({
+            postId: fbPostId,
+            pageAccessToken: cfg.fbPageAccessToken,
+            message: args.comment.trim(),
+          });
+        } catch (e) {
+          send({
+            step: "error",
+            message: `Comment failed: ${e instanceof Error ? e.message : "unknown"}`,
+          });
+        }
+      }
+
+      send({
+        step: "done",
+        message: sched.isScheduled
+          ? `Scheduled (id ${fbPostId})`
+          : `Posted (id ${fbPostId})`,
+        postId: fbPostId,
+        caption,
+      });
+
+      return {
+        postId: fbPostId,
+        videoId: ttId,
+        caption,
+        status: sched.isScheduled ? "scheduled" : "posted",
+        destinationPageId: args.fbPageId,
       };
     }
 
