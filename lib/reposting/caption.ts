@@ -4,6 +4,9 @@ type CaptionArgs = {
   apiKey?: string;
   model?: string;
   bannedHashtags?: string[];
+  maxChars?: number;
+  hashtagCount?: { min: number; max: number };
+  hashtagGoal?: string;
 };
 
 async function callLLM(prompt: string, args: CaptionArgs): Promise<string | null> {
@@ -27,11 +30,16 @@ async function callLLM(prompt: string, args: CaptionArgs): Promise<string | null
 }
 
 export async function generateCaption(args: CaptionArgs): Promise<string> {
+  const maxChars = args.maxChars ?? 200;
+  const hashtagRange = args.hashtagCount ?? { min: 3, max: 5 };
   const banned = args.bannedHashtags?.length
     ? `- Do NOT use these hashtags: ${args.bannedHashtags.map((t) => `#${t.replace(/^#/, "")}`).join(", ")}.`
     : "";
+  const hashtagGoal = args.hashtagGoal
+    ? `- Hashtag objective: ${args.hashtagGoal}`
+    : "- Hashtag objective: maximize relevant reach while staying authentic to the clip.";
   const out = await callLLM(
-    `You are writing the Facebook caption for a short video. Goal: maximize watch-time and shares so the algorithm pushes the post. Output the caption only, no preamble. Under 200 chars total including hashtags.
+    `You are writing the Facebook caption for a short video. Goal: maximize watch-time and shares so the algorithm pushes the post. Output the caption only, no preamble. Under ${maxChars} chars total including hashtags.
 
 Hook craft (pick ONE that fits the clip; don't combine):
 - Open mid-action or with a vivid sensory detail ("That sound when…").
@@ -46,9 +54,11 @@ Engagement bait that actually works (use sparingly, max one):
 - A genuine question tied to the clip's subject ("Would you have reacted the same?")
 - A "tag a friend who…" only if it's specific and natural.
 
-Hashtags (3-5, end of caption):
+Hashtags (${hashtagRange.min}-${hashtagRange.max}, end of caption):
 - Mix one broad reach tag (#fyp / #reels / #viral / one platform-fit broad tag) with 2-4 specific subject tags.
 - Specific tags must come from the actual subject of the clip, not vibes.
+${hashtagGoal}
+- Prefer hashtags with proven broad usage + topic precision. Keep them short, readable, and non-redundant.
 
 Hard rules — never violate:
 - Do NOT include any date, year, month name, or day reference (no "April 12", "2026", "yesterday", "this week").

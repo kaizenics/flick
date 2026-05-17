@@ -90,6 +90,10 @@ export async function runItem(args: RunItemArgs): Promise<RunItemResult> {
         apiKey: cfg.openrouterApiKey,
         model: cfg.openrouterModel,
         bannedHashtags: ["shorts", "shortsfeed"],
+        maxChars: 130,
+        hashtagCount: { min: 3, max: 4 },
+        hashtagGoal:
+          "prioritize Facebook Reels discoverability: 1 broad discovery tag + 2-3 tightly topic-matched tags likely searched by the target audience",
       });
 
       send({
