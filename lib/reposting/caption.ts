@@ -3,6 +3,7 @@ type CaptionArgs = {
   description: string;
   apiKey?: string;
   model?: string;
+  bannedHashtags?: string[];
 };
 
 async function callLLM(prompt: string, args: CaptionArgs): Promise<string | null> {
@@ -26,6 +27,9 @@ async function callLLM(prompt: string, args: CaptionArgs): Promise<string | null
 }
 
 export async function generateCaption(args: CaptionArgs): Promise<string> {
+  const banned = args.bannedHashtags?.length
+    ? `- Do NOT use these hashtags: ${args.bannedHashtags.map((t) => `#${t.replace(/^#/, "")}`).join(", ")}.`
+    : "";
   const out = await callLLM(
     `You are writing the Facebook caption for a short video. Goal: maximize watch-time and shares so the algorithm pushes the post. Output the caption only, no preamble. Under 200 chars total including hashtags.
 
@@ -50,6 +54,8 @@ Hard rules — never violate:
 - Do NOT include any date, year, month name, or day reference (no "April 12", "2026", "yesterday", "this week").
 - Do NOT include author/attribution phrases ("Video by", "Reel by", "@username", "Posted by").
 - Do NOT use vague filler hashtags like #MomentsThatMatter #EverydayMagic #Memories #Throwback #LifeIsBeautiful.
+- Do NOT use hashtags that don't fit the destination platform.
+- ${banned || "No additional banned hashtags."}
 - No em-dash openers, no stock phrases ("capturing the moment", "what a vibe", "pure magic").
 - No clickbait that the clip can't deliver on — promise must match payload.
 - Write about what is actually happening in the clip.
@@ -58,8 +64,8 @@ Source title: ${args.title}
 Source description: ${args.description}`,
     args,
   ).catch(() => null);
-  if (out) return out;
-  return `${args.title}\n\n${args.description.slice(0, 200)}`.trim();
+  if (out) return stripBannedHashtags(out, args.bannedHashtags);
+  return stripBannedHashtags(`${args.title}\n\n${args.description.slice(0, 200)}`.trim(), args.bannedHashtags);
 }
 
 export async function generateYoutubeMeta(
@@ -140,4 +146,24 @@ function sanitizeTags(raw: unknown): string[] {
     if (cleaned.length >= 15) break;
   }
   return cleaned;
+}
+
+function stripBannedHashtags(caption: string, banned?: string[]): string {
+  if (!banned?.length) return caption;
+  let out = caption;
+  for (const raw of banned) {
+    const tag = raw.trim().replace(/^#/, "");
+    if (!tag) continue;
+    const pattern = new RegExp(`(^|\\s)#${escapeRegExp(tag)}\\b`, "gi");
+    out = out.replace(pattern, "$1");
+  }
+  return out
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
+function escapeRegExp(input: string): string {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
