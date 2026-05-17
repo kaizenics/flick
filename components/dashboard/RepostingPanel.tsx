@@ -46,6 +46,7 @@ import {
   Link as LinkIcon,
   Unplug,
   Square,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import { YoutubeIcon, InstagramIcon, FacebookIcon, TiktokIcon } from "@/components/icons/brand";
@@ -186,6 +187,8 @@ export function RepostingPanel() {
   // queue & run
   const [items, setItems] = useState<QueueItem[]>([blankRow()]);
   const [running, setRunning] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadingRow, setDownloadingRow] = useState<number | null>(null);
   const runAbortRef = useRef<AbortController | null>(null);
   const [log, setLog] = useState<string[]>([]);
   const [history, setHistory] = useState<ScheduledRecord[]>([]);
@@ -557,6 +560,99 @@ export function RepostingPanel() {
 
   const stopRun = () => {
     runAbortRef.current?.abort();
+  };
+
+  const triggerBrowserDownload = (blob: Blob, fallbackName: string, fromHeader: string | null) => {
+    const match = fromHeader?.match(/filename="?([^";]+)"?/i);
+    const fileName = (match?.[1] ?? fallbackName).trim();
+    const href = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = href;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(href);
+  };
+
+  const downloadOne = async (item: QueueItem, idx: number, total?: number) => {
+    if (!activeId) throw new Error("No active account selected");
+    const trimmed = item.url.trim();
+    if (!trimmed) throw new Error("URL is empty");
+    setDownloadingRow(idx);
+    const res = await fetch(`/api/reposting/accounts/${activeId}/download`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: trimmed }),
+    });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      let msg = txt;
+      try {
+        const parsed = JSON.parse(txt) as { error?: string };
+        if (parsed.error) msg = parsed.error;
+      } catch {
+        // plain text response
+      }
+      throw new Error(msg || `Download failed (${res.status})`);
+    }
+    const blob = await res.blob();
+    const cd = res.headers.get("Content-Disposition");
+    const prefix = total && total > 1 ? `${String(idx + 1).padStart(2, "0")}-` : "";
+    triggerBrowserDownload(blob, `${prefix}video-${idx + 1}.mp4`, cd);
+  };
+
+  const downloadRow = async (index: number) => {
+    if (running || downloading) return;
+    try {
+      setDownloading(true);
+      await downloadOne(items[index], index);
+      toast.success(`Downloaded row ${index + 1}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Download failed");
+    } finally {
+      setDownloading(false);
+      setDownloadingRow(null);
+    }
+  };
+
+  const downloadAll = async () => {
+    if (running || downloading) return;
+    const valid = items
+      .map((it) => it.url.trim())
+      .filter((u) => u.length > 0);
+    if (valid.length === 0) {
+      toast.error("Add at least one URL to download");
+      return;
+    }
+    try {
+      setDownloading(true);
+      const res = await fetch(`/api/reposting/accounts/${activeId}/download`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ urls: valid }),
+      });
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        let msg = txt;
+        try {
+          const parsed = JSON.parse(txt) as { error?: string };
+          if (parsed.error) msg = parsed.error;
+        } catch {
+          // plain text response
+        }
+        throw new Error(msg || `Bulk download failed (${res.status})`);
+      }
+      const blob = await res.blob();
+      const cd = res.headers.get("Content-Disposition");
+      triggerBrowserDownload(blob, `videos-${Date.now()}.zip`, cd);
+      toast.success(`Downloaded ZIP with ${valid.length} video(s)`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Bulk download failed");
+    } finally {
+      setDownloading(false);
+      setDownloadingRow(null);
+    }
   };
 
   // ---- effects ----
@@ -935,7 +1031,7 @@ export function RepostingPanel() {
                   {items.map((item, i) => (
                     <div
                       key={i}
-                      className="grid gap-2 md:grid-cols-[1fr_220px_auto_auto] md:items-start"
+                      className="grid gap-2 md:grid-cols-[1fr_220px_auto_auto_auto] md:items-start"
                     >
                       <div>
                         <Label className="flex items-center gap-1 text-xs">
@@ -1041,16 +1137,28 @@ export function RepostingPanel() {
                           type="checkbox"
                           checked={item.publishNow}
                           onChange={(e) => updateItem(i, { publishNow: e.target.checked })}
-                          disabled={running}
+                          disabled={running || downloading}
                         />
                         Post now
                       </label>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="md:mt-5"
+                        onClick={() => void downloadRow(i)}
+                        disabled={running || downloading || !item.url.trim()}
+                        title={downloadingRow === i ? "Downloading…" : "Download this video"}
+                      >
+                        <Download
+                          className={`size-4 ${downloadingRow === i ? "animate-pulse" : ""}`}
+                        />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"
                         className="md:mt-5"
                         onClick={() => removeRow(i)}
-                        disabled={running}
+                        disabled={running || downloading}
                         title="Remove"
                       >
                         <Trash2 className="size-4" />
@@ -1059,10 +1167,24 @@ export function RepostingPanel() {
                   ))}
                 </div>
                 <div className="flex items-center gap-2 pt-2">
-                  <Button variant="outline" size="sm" onClick={addRow} disabled={running}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={addRow}
+                    disabled={running || downloading}
+                  >
                     <Plus className="size-4" /> Add row
                   </Button>
-                  <Button onClick={run} disabled={running}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void downloadAll()}
+                    disabled={running || downloading}
+                  >
+                    <Download className="size-4" />
+                    {downloading ? "Downloading…" : "Download all"}
+                  </Button>
+                  <Button onClick={run} disabled={running || downloading}>
                     <Send className="size-4" /> {running ? "Running…" : "Schedule all"}
                   </Button>
                   {running && (
