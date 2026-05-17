@@ -2,6 +2,24 @@ import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+function formatArgsForUrl(url: string): string[] {
+  // TikTok and Instagram serve pre-muxed single-file mp4s; YouTube needs
+  // an explicit video+audio format pair. Per-host selectors avoid the
+  // "Requested format is not available" failure mode.
+  if (/tiktok\.com/i.test(url)) {
+    return ["-f", "mp4/best[ext=mp4]/best"];
+  }
+  if (/instagram\.com/i.test(url)) {
+    return ["-f", "mp4/best[ext=mp4]/best"];
+  }
+  return [
+    "-f",
+    "(bv*[height=1080][vcodec^=avc1]/bv*[width=1080][vcodec^=avc1])+(ba[ext=m4a]/ba)",
+    "--merge-output-format",
+    "mp4",
+  ];
+}
+
 export async function downloadVideo(urlOrId: string): Promise<string> {
   const url = /^https?:\/\//.test(urlOrId)
     ? urlOrId
@@ -10,16 +28,8 @@ export async function downloadVideo(urlOrId: string): Promise<string> {
   await new Promise<void>((resolve, reject) => {
     const proc = spawn(
       "yt-dlp",
-      [
-        "-f",
-        "bv*[height<=1080][vcodec^=avc1]+ba[ext=m4a]/bv*[height<=1080]+ba/b[height<=1080]",
-        "--merge-output-format",
-        "mp4",
-        "-o",
-        out,
-        url,
-      ],
-      { stdio: "pipe" }
+      [...formatArgsForUrl(url), "-o", out, url],
+      { stdio: "pipe" },
     );
     let stderr = "";
     proc.stderr.on("data", (c) => (stderr += c.toString()));

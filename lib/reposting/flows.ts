@@ -89,6 +89,7 @@ export async function runItem(args: RunItemArgs): Promise<RunItemResult> {
         description: meta.description,
         apiKey: cfg.openrouterApiKey,
         model: cfg.openrouterModel,
+        bannedHashtags: ["shorts", "shortsfeed"],
       });
 
       send({
