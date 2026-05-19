@@ -8,6 +8,7 @@ import {
   Heart,
   Workflow,
   Repeat2,
+  Archive,
 } from "lucide-react";
 
 import {
@@ -35,6 +36,7 @@ const navTools = [
   { title: "Page Engagement", href: "/engagement", icon: Heart, available: true },
   { title: "Automation Flow", href: "/flow", icon: Workflow, available: true },
   { title: "Reposting", href: "/reposting", icon: Repeat2, available: true },
+  { title: "Archives", href: "/archives", icon: Archive, available: true },
 ];
 
 function SidebarToggle({ className }: { className?: string }) {

@@ -501,6 +501,10 @@ export function RepostingPanel() {
       return;
     }
     const valid = items.filter((it) => it.url.trim().length > 0);
+    const submittedIndices = items
+      .map((it, index) => ({ item: it, index }))
+      .filter(({ item }) => item.url.trim().length > 0)
+      .map(({ index }) => index);
     if (valid.length === 0) {
       toast.error(
         activeAccount.flow === "yt-to-fb"
@@ -531,6 +535,7 @@ export function RepostingPanel() {
       }
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
+      const completed = new Set<number>();
       let buffer = "";
       while (true) {
         const { value, done } = await reader.read();
@@ -549,6 +554,9 @@ export function RepostingPanel() {
               caption?: string;
               fbPostId?: string;
             };
+            if (evt.step === "done" && Number.isInteger(evt.idx) && evt.idx >= 1) {
+              completed.add(evt.idx - 1);
+            }
             const tag = `[${evt.idx}] ${evt.step}`;
             append(`${tag}: ${evt.message}`);
             if (evt.caption && evt.step === "done") {
@@ -563,6 +571,20 @@ export function RepostingPanel() {
         append("Stopped.");
         toast.info("Run stopped");
       } else {
+        const remainingSubmitted = submittedIndices
+          .filter((_, submittedOrder) => !completed.has(submittedOrder))
+          .map((sourceIndex) => items[sourceIndex]);
+        const unsentDrafts = items.filter((it) => it.url.trim().length === 0);
+        const remaining = [...remainingSubmitted, ...unsentDrafts];
+        if (remaining.length > 0) {
+          setItems(remaining);
+          append(
+            `Queue updated: archived ${completed.size} success(es), kept ${remainingSubmitted.length} failed item(s) for retry.`,
+          );
+        } else {
+          setItems([blankRow()]);
+          append(`Queue updated: archived ${completed.size} success(es), queue is now empty.`);
+        }
         toast.success("Pipeline finished");
       }
       await refreshHistory(activeId);
