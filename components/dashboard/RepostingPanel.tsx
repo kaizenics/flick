@@ -144,8 +144,20 @@ type ScheduledRecord = {
 function defaultScheduledAt(offsetMinutes: number): string {
   const d = new Date(Date.now() + offsetMinutes * 60_000);
   d.setSeconds(0, 0);
+  return formatDateTimeLocal(d);
+}
+
+function formatDateTimeLocal(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function nextDayFrom(scheduledAt: string): string | null {
+  const d = new Date(scheduledAt);
+  if (Number.isNaN(d.getTime())) return null;
+  d.setDate(d.getDate() + 1);
+  d.setSeconds(0, 0);
+  return formatDateTimeLocal(d);
 }
 
 const blankRow = (offset = 20): QueueItem => ({
@@ -455,7 +467,18 @@ export function RepostingPanel() {
     setItems((arr) => arr.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
   };
   const addRow = () =>
-    setItems((arr) => [...arr, blankRow(20 + arr.length * 60)]);
+    setItems((arr) => {
+      const last = arr.at(-1);
+      const scheduledAt = last ? nextDayFrom(last.scheduledAt) : null;
+      return [
+        ...arr,
+        {
+          ...blankRow(),
+          scheduledAt: scheduledAt ?? defaultScheduledAt(20),
+          publishNow: false,
+        },
+      ];
+    });
   const removeRow = (i: number) =>
     setItems((arr) => {
       const next = arr.filter((_, idx) => idx !== i);
