@@ -141,6 +141,21 @@ type ScheduledRecord = {
   error?: string;
 };
 
+type DiscoverCandidate = {
+  videoId: string;
+  url: string;
+  title: string;
+  channelTitle: string;
+  publishedAt: string;
+  durationSeconds: number;
+  viewCount: number;
+  likeCount: number;
+  thumbUrl: string;
+  discoveredAt: string;
+  firstSeenAt: string;
+  lastSeenAt: string;
+};
+
 function defaultScheduledAt(offsetMinutes: number): string {
   const d = new Date(Date.now() + offsetMinutes * 60_000);
   d.setSeconds(0, 0);
@@ -158,6 +173,37 @@ function nextDayFrom(scheduledAt: string): string | null {
   d.setDate(d.getDate() + 1);
   d.setSeconds(0, 0);
   return formatDateTimeLocal(d);
+}
+
+function canonicalYoutubeUrl(input: string): string {
+  const trimmed = input.trim();
+  if (/^[A-Za-z0-9_-]{11}$/.test(trimmed)) {
+    return `https://www.youtube.com/watch?v=${trimmed}`;
+  }
+  try {
+    const u = new URL(trimmed);
+    const v = u.searchParams.get("v");
+    if (v && /^[A-Za-z0-9_-]{11}$/.test(v)) {
+      return `https://www.youtube.com/watch?v=${v}`;
+    }
+    const m = u.pathname.match(/\/(?:shorts|embed|v)\/([A-Za-z0-9_-]{11})/);
+    if (m) return `https://www.youtube.com/watch?v=${m[1]}`;
+    if (u.hostname === "youtu.be") {
+      const id = u.pathname.replace(/^\//, "").split("/")[0];
+      if (/^[A-Za-z0-9_-]{11}$/.test(id)) {
+        return `https://www.youtube.com/watch?v=${id}`;
+      }
+    }
+  } catch {
+    // keep as-is
+  }
+  return trimmed;
+}
+
+function formatCount(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return String(n);
 }
 
 const blankRow = (offset = 20): QueueItem => ({
@@ -204,6 +250,13 @@ export function RepostingPanel() {
   const runAbortRef = useRef<AbortController | null>(null);
   const [log, setLog] = useState<string[]>([]);
   const [history, setHistory] = useState<ScheduledRecord[]>([]);
+  const [candidates, setCandidates] = useState<DiscoverCandidate[]>([]);
+  const [candidateSelection, setCandidateSelection] = useState<Record<string, boolean>>({});
+  const [discoverQuery, setDiscoverQuery] = useState("");
+  const [discoverMaxResults, setDiscoverMaxResults] = useState(10);
+  const [discoverFreshnessDays, setDiscoverFreshnessDays] = useState(7);
+  const [discovering, setDiscovering] = useState(false);
+  const [discoverClearing, setDiscoverClearing] = useState(false);
 
   const append = (line: string) => setLog((l) => [...l, line]);
 
@@ -460,6 +513,130 @@ export function RepostingPanel() {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Clear failed");
     }
+  };
+
+  // ---- discover ----
+  const refreshCandidates = async (id: string) => {
+    try {
+      const res = await fetch(`/api/reposting/accounts/${id}/discover`);
+      if (!res.ok) return;
+      const data = (await res.json()) as { items: DiscoverCandidate[] };
+      setCandidates(data.items);
+      setCandidateSelection((prev) => {
+        const next: Record<string, boolean> = {};
+        for (const item of data.items) {
+          if (prev[item.url]) next[item.url] = true;
+        }
+        return next;
+      });
+    } catch {
+      // ignore
+    }
+  };
+
+  const runDiscover = async () => {
+    if (!activeId || !activeAccount) return;
+    const query = discoverQuery.trim();
+    if (!query) {
+      toast.error("Enter a discovery query first");
+      return;
+    }
+    setDiscovering(true);
+    try {
+      const res = await fetch(`/api/reposting/accounts/${activeId}/discover/search`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query,
+          maxResults: discoverMaxResults,
+          freshnessDays: discoverFreshnessDays,
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        items?: DiscoverCandidate[];
+        added?: number;
+        updated?: number;
+        error?: string;
+      };
+      if (!res.ok) {
+        throw new Error(data.error ?? `Discover failed (${res.status})`);
+      }
+      setCandidates(data.items ?? []);
+      setCandidateSelection({});
+      toast.success(
+        `Discover complete: ${data.added ?? 0} new, ${data.updated ?? 0} updated`,
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Discover failed");
+    } finally {
+      setDiscovering(false);
+    }
+  };
+
+  const clearDiscover = async () => {
+    if (!activeId) return;
+    setDiscoverClearing(true);
+    try {
+      const res = await fetch(`/api/reposting/accounts/${activeId}/discover`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setCandidates([]);
+      setCandidateSelection({});
+      toast.success("Cleared discovered candidates");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Clear failed");
+    } finally {
+      setDiscoverClearing(false);
+    }
+  };
+
+  const appendSelectedCandidatesToQueue = () => {
+    if (!activeAccount || activeAccount.flow !== "yt-to-fb") return;
+    const selectedUrls = candidates
+      .filter((c) => candidateSelection[c.url])
+      .map((c) => canonicalYoutubeUrl(c.url));
+    if (selectedUrls.length === 0) {
+      toast.error("Select at least one discovered candidate");
+      return;
+    }
+
+    const queueSet = new Set(items.map((it) => canonicalYoutubeUrl(it.url)));
+    const historySet = new Set(history.map((h) => canonicalYoutubeUrl(h.url)));
+    const uniqueSelection = Array.from(new Set(selectedUrls));
+    const toAdd: string[] = [];
+    let skipped = 0;
+    for (const url of uniqueSelection) {
+      if (queueSet.has(url) || historySet.has(url)) {
+        skipped += 1;
+        continue;
+      }
+      toAdd.push(url);
+      queueSet.add(url);
+    }
+    if (toAdd.length === 0) {
+      toast.info("Nothing added: all selected items already exist in queue/history");
+      return;
+    }
+
+    setItems((prev) => {
+      const next = [...prev];
+      for (const url of toAdd) {
+        const last = next.at(-1);
+        const scheduledAt = last ? nextDayFrom(last.scheduledAt) : null;
+        next.push({
+          ...blankRow(),
+          url,
+          scheduledAt: scheduledAt ?? defaultScheduledAt(20),
+          publishNow: false,
+        });
+      }
+      return next;
+    });
+
+    toast.success(
+      `Added ${toAdd.length} discovered URL${toAdd.length === 1 ? "" : "s"} to queue${skipped ? `, skipped ${skipped}` : ""}`,
+    );
   };
 
   // ---- queue ops ----
@@ -722,6 +899,8 @@ export function RepostingPanel() {
       setAccountConfig(null);
       setHistory([]);
       setItems([blankRow()]);
+      setCandidates([]);
+      setCandidateSelection({});
       setPageId("");
       setFbTokenDraft("");
       return;
@@ -730,6 +909,7 @@ export function RepostingPanel() {
     void refreshAccountConfig(activeId);
     void refreshHistory(activeId);
     void pollPublishStatus(activeId);
+    void refreshCandidates(activeId);
     const savedQueue = localStorage.getItem(`reposting:queue:${activeId}`);
     if (savedQueue) {
       try {
@@ -1052,6 +1232,148 @@ export function RepostingPanel() {
                     Heads up: YouTube&apos;s default API quota allows ~6 uploads/day per
                     Google project.
                   </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {activeAccount.flow === "yt-to-fb" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <YoutubeIcon size={16} className="text-[#ff0000]" />
+                    Discover (YouTube)
+                  </CardTitle>
+                  <CardDescription>
+                    Manual discovery only. Public YouTube metadata with short-form filtering (≤ 3 minutes).
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid gap-3 md:grid-cols-[1fr_120px_120px_auto]">
+                    <div>
+                      <Label className="text-xs">Query</Label>
+                      <Input
+                        placeholder="e.g. ai tools, football clips, travel hacks"
+                        value={discoverQuery}
+                        onChange={(e) => setDiscoverQuery(e.target.value)}
+                        disabled={discovering}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Max results</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={25}
+                        value={discoverMaxResults}
+                        onChange={(e) =>
+                          setDiscoverMaxResults(
+                            Number.isFinite(Number(e.target.value))
+                              ? Number(e.target.value)
+                              : 10,
+                          )
+                        }
+                        disabled={discovering}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Freshness (days)</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={365}
+                        value={discoverFreshnessDays}
+                        onChange={(e) =>
+                          setDiscoverFreshnessDays(
+                            Number.isFinite(Number(e.target.value))
+                              ? Number(e.target.value)
+                              : 7,
+                          )
+                        }
+                        disabled={discovering}
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <Button onClick={() => void runDiscover()} disabled={discovering}>
+                        {discovering ? "Discovering…" : "Discover"}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={appendSelectedCandidatesToQueue}
+                      disabled={discovering || candidates.length === 0}
+                    >
+                      <Plus className="size-4" /> Append selected to queue
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void refreshCandidates(activeAccount.id)}
+                      disabled={discovering || discoverClearing}
+                    >
+                      Refresh list
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => void clearDiscover()}
+                      disabled={discovering || discoverClearing || candidates.length === 0}
+                    >
+                      {discoverClearing ? "Clearing…" : "Clear candidates"}
+                    </Button>
+                  </div>
+
+                  {candidates.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No discovered candidates yet. Run Discover to fetch public YouTube videos.
+                    </p>
+                  ) : (
+                    <div className="max-h-[360px] space-y-2 overflow-y-auto pr-1">
+                      {candidates.map((c) => (
+                        <label
+                          key={c.url}
+                          className="flex items-start gap-3 rounded-md border p-3 text-sm"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={Boolean(candidateSelection[c.url])}
+                            onChange={(e) =>
+                              setCandidateSelection((prev) => ({
+                                ...prev,
+                                [c.url]: e.target.checked,
+                              }))
+                            }
+                            className="mt-1"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate font-medium">{c.title || c.url}</div>
+                            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                              <span>{c.channelTitle || "Unknown channel"}</span>
+                              <span>·</span>
+                              <span>{new Date(c.publishedAt).toLocaleDateString()}</span>
+                              <span>·</span>
+                              <span>{formatCount(c.viewCount)} views</span>
+                              <span>·</span>
+                              <span>{formatCount(c.likeCount)} likes</span>
+                              <span>·</span>
+                              <span>{Math.round(c.durationSeconds)}s</span>
+                            </div>
+                            <a
+                              href={c.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mt-1 block truncate text-xs text-muted-foreground underline"
+                            >
+                              {c.url}
+                            </a>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}
