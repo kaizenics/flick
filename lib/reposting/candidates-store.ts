@@ -3,9 +3,28 @@ import { join } from "node:path";
 import { accountDir } from "./accounts-store";
 import type { YoutubeDiscoveredCandidate } from "./youtube-discovery";
 
+export type ViralScoreBreakdown = {
+  velocity: number;
+  freshness: number;
+  engagement: number;
+  relevance: number;
+  feedback: number;
+  total: number;
+};
+
 export type StoredCandidate = YoutubeDiscoveredCandidate & {
   firstSeenAt: string;
   lastSeenAt: string;
+  viralScore?: number;
+  scoreBreakdown?: ViralScoreBreakdown;
+  matchedKeywords?: string[];
+  sourceQuery?: string;
+  channelStatsSnapshot?: {
+    posted: number;
+    failed: number;
+    totalSeen: number;
+  };
+  lastEvaluatedAt?: string;
 };
 
 function candidatesFile(accountId: string): string {
@@ -40,7 +59,7 @@ export async function clearCandidates(accountId: string): Promise<void> {
 
 export async function upsertCandidates(
   accountId: string,
-  incoming: YoutubeDiscoveredCandidate[],
+  incoming: Array<YoutubeDiscoveredCandidate & Partial<StoredCandidate>>,
 ): Promise<{ items: StoredCandidate[]; added: number; updated: number }> {
   const current = await readCandidates(accountId);
   const byUrl = new Map(current.map((c) => [c.url, c]));
@@ -74,4 +93,3 @@ export async function upsertCandidates(
   await writeCandidates(accountId, items);
   return { items, added, updated };
 }
-

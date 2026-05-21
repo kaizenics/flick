@@ -5,8 +5,9 @@ Linux machine or VPS, not a serverless platform.
 
 Two pillars:
 
-- **Reposting pipeline** — paste a YouTube Shorts URL (or use Discover for
-  manual YouTube candidate discovery), let an LLM write a
+- **Reposting pipeline** — paste a YouTube Shorts URL (or use Discover /
+  Viral Finder for manual or score-based YouTube candidate discovery), run AI preflight
+  (3 caption variants + safety), then let an LLM write/use an approved
   Facebook caption, and post (or natively schedule) to a Facebook Page.
   Powered by the Graph API, so scheduling is handed off to Facebook itself
   rather than depending on this app to be online at the publish time.

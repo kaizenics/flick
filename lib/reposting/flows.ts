@@ -83,18 +83,23 @@ export async function runItem(args: RunItemArgs): Promise<RunItemResult> {
       send({ step: "download", message: `Downloading "${meta.title}"` });
       filePath = await downloadVideo(url);
 
-      send({ step: "caption", message: "Generating caption" });
-      const caption = await generateCaption({
-        title: meta.title,
-        description: meta.description,
-        apiKey: cfg.openrouterApiKey,
-        model: cfg.openrouterModel,
-        bannedHashtags: ["shorts", "shortsfeed"],
-        maxChars: 130,
-        hashtagCount: { min: 3, max: 4 },
-        hashtagGoal:
-          "prioritize Facebook Reels discoverability: 1 broad discovery tag + 2-3 tightly topic-matched tags likely searched by the target audience",
-      });
+      let caption = args.manualCaption?.trim();
+      if (caption) {
+        send({ step: "caption", message: "Using approved caption from preflight" });
+      } else {
+        send({ step: "caption", message: "Generating caption" });
+        caption = await generateCaption({
+          title: meta.title,
+          description: meta.description,
+          apiKey: cfg.openrouterApiKey,
+          model: cfg.openrouterModel,
+          bannedHashtags: ["shorts", "shortsfeed"],
+          maxChars: 130,
+          hashtagCount: { min: 3, max: 4 },
+          hashtagGoal:
+            "prioritize Facebook Reels discoverability: 1 broad discovery tag + 2-3 tightly topic-matched tags likely searched by the target audience",
+        });
+      }
 
       send({
         step: "upload",
