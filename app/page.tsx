@@ -1,8 +1,4 @@
-import { Navbar } from "@/components/landing/navbar";
 import { Hero } from "@/components/landing/hero";
-import { About } from "@/components/landing/about";
-import { Faq } from "@/components/landing/faq";
-import { Footer } from "@/components/landing/footer";
 
 export default function Landing() {
   return (
@@ -27,13 +23,9 @@ export default function Landing() {
         }}
       />
 
-      <Navbar />
-      <main>
+      <main className="min-h-screen">
         <Hero />
-        <About />
-        <Faq />
       </main>
-      <Footer />
     </div>
   );
 }

@@ -1,46 +1,17 @@
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 
-const features = [
-  {
-    title: "Engagement at scale",
-    description:
-      "Drive follows, likes, and reactions from a fleet of accounts with one orchestrated run.",
-  },
-  {
-    title: "Visual flow builder",
-    description:
-      "Compose pipelines on a node canvas and watch each step execute in real time.",
-  },
-  {
-    title: "Account-aware",
-    description:
-      "Persisted sessions, smart pacing, and per-account isolation keep workloads stable.",
-  },
-];
-
 export function Hero() {
   return (
-    <section className="mx-auto flex w-full max-w-6xl flex-col items-center px-6 pt-32 md:pt-40">
-      <div className="flex flex-col items-center pb-24 text-center md:pb-32">
-        <span className="mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-card/40 px-3 py-1 text-xs text-muted-foreground backdrop-blur">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-          Quietly automating Pages since day one
-        </span>
-
-        <h1 className="max-w-3xl text-balance text-4xl font-semibold leading-[1.05] tracking-tight md:text-6xl">
-          Lift every Page,
-          <br className="hidden sm:block" />
-          <span className="text-muted-foreground">on autopilot.</span>
+    <section className="mx-auto flex w-full max-w-6xl flex-col px-6 pb-16 pt-32 md:pt-40">
+      <div className="mb-10 flex flex-col items-start gap-6 md:mb-12">
+        <h1 className="text-balance text-4xl font-semibold tracking-tight md:text-6xl">
+          Lifty
         </h1>
-
-        <p className="mt-6 max-w-xl text-pretty text-base text-muted-foreground md:text-lg">
-          Lifty orchestrates Facebook engagement across your accounts — follows,
-          likes, reactions, page creation — all from one quiet, visual control
-          room.
+        <p className="max-w-xl text-sm text-muted-foreground md:text-base">
+          Visual automation workspace for Facebook operations.
         </p>
-
-        <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row">
+        <div className="flex flex-col items-start gap-3 sm:flex-row">
           <Link
             href="/dashboard"
             className={buttonVariants({ size: "lg" }) + " cursor-pointer"}
@@ -54,23 +25,66 @@ export function Hero() {
               " cursor-pointer text-muted-foreground hover:text-foreground"
             }
           >
-            See the flow →
+            Open flow
           </Link>
         </div>
       </div>
 
-      <div className="grid w-full grid-cols-1 gap-px overflow-hidden rounded-xl border border-border bg-border md:grid-cols-3">
-        {features.map((f) => (
-          <div
-            key={f.title}
-            className="flex flex-col gap-2 bg-background p-6 transition-colors hover:bg-card/60"
-          >
-            <h3 className="text-sm font-medium tracking-tight">{f.title}</h3>
-            <p className="text-sm leading-relaxed text-muted-foreground">
-              {f.description}
-            </p>
+      <div className="relative overflow-hidden rounded-2xl border border-border bg-card/40 p-4 shadow-sm md:p-6">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -left-20 -top-20 h-64 w-64 rounded-full blur-3xl"
+          style={{ background: "rgba(34,197,94,0.16)" }}
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -bottom-20 -right-16 h-64 w-64 rounded-full blur-3xl"
+          style={{ background: "rgba(56,189,248,0.16)" }}
+        />
+
+        <div className="relative grid gap-4 md:grid-cols-3">
+          <div className="rounded-xl border border-border/70 bg-background/85 p-4 md:col-span-2">
+            <div className="mb-4 flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Live Flow</span>
+              <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-600">
+                Running
+              </span>
+            </div>
+            <div className="space-y-3">
+              <div className="rounded-lg border border-border bg-card p-3">
+                <div className="h-2 w-28 rounded bg-foreground/80" />
+                <div className="mt-2 h-2 w-44 rounded bg-muted-foreground/40" />
+              </div>
+              <div className="rounded-lg border border-border bg-card p-3">
+                <div className="h-2 w-36 rounded bg-foreground/80" />
+                <div className="mt-2 h-2 w-52 rounded bg-muted-foreground/40" />
+              </div>
+              <div className="rounded-lg border border-border bg-card p-3">
+                <div className="h-2 w-24 rounded bg-foreground/80" />
+                <div className="mt-2 h-2 w-40 rounded bg-muted-foreground/40" />
+              </div>
+            </div>
           </div>
-        ))}
+
+          <div className="rounded-xl border border-border/70 bg-background/85 p-4">
+            <span className="text-xs text-muted-foreground">Queue</span>
+            <div className="mt-4 space-y-2">
+              <div className="rounded-md border border-border bg-card px-3 py-2 text-xs">
+                Scheduled
+              </div>
+              <div className="rounded-md border border-border bg-card px-3 py-2 text-xs">
+                In progress
+              </div>
+              <div className="rounded-md border border-border bg-card px-3 py-2 text-xs">
+                Done
+              </div>
+            </div>
+            <div className="mt-6 rounded-lg border border-border bg-card p-3">
+              <div className="text-[11px] text-muted-foreground">Accounts</div>
+              <div className="mt-2 text-2xl font-semibold tracking-tight">12</div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   );
