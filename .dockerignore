@@ -1,0 +1,33 @@
+# VCS
+.git
+.gitignore
+
+# Local env/secrets
+.env
+.env.*
+!.env.example
+
+# Build/cache outputs
+.next
+out
+coverage
+
+# Dependencies
+node_modules
+.pnp
+.pnp.*
+.yarn
+
+# Local runtime state (must be persisted via Coolify volume instead)
+data
+
+# Editor/system
+.DS_Store
+*.log
+*.pem
+*.tsbuildinfo
+
+# Documentation/helper files not needed in container build context
+AGENTS.md
+SETUP.md
+CLAUDE.md
