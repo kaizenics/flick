@@ -62,20 +62,12 @@ function SidebarToggle({ className }: { className?: string }) {
   );
 }
 
-type SidebarUser = {
-  name?: string | null;
-  email?: string | null;
-  image?: string | null;
-};
-
 export function AppSidebar({
-  user,
   ...props
-}: React.ComponentProps<typeof Sidebar> & { user?: SidebarUser }) {
+}: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
-  const displayName = user?.name?.trim() || user?.email?.split("@")[0] || "Account";
-  const displayEmail = user?.email ?? "";
-  const initial = (displayName[0] ?? "A").toUpperCase();
+  const displayName = "Local System";
+  const displayEmail = "private machine mode";
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -182,16 +174,7 @@ export function AppSidebar({
               render={<Link href="/profile" />}
             >
               <div className="flex aspect-square size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-card text-xs font-medium">
-                {user?.image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={user.image}
-                    alt={displayName}
-                    className="size-full object-cover"
-                  />
-                ) : (
-                  initial
-                )}
+                SYS
               </div>
               <div className="flex min-w-0 flex-col gap-0.5 text-left leading-none group-data-[collapsible=icon]:hidden">
                 <span className="truncate text-sm font-medium">{displayName}</span>

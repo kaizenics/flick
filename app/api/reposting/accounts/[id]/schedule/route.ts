@@ -1,5 +1,3 @@
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
 import { getAccount } from "@/lib/reposting/accounts-store";
 import { appendScheduleRecord, listScheduleRecords } from "@/lib/reposting/schedule-store";
 import { runItem } from "@/lib/reposting/flows";
@@ -15,17 +13,10 @@ type Item = {
   comment?: string;
 };
 
-async function requireUserId(): Promise<string | null> {
-  const session = await auth.api.getSession({ headers: await headers() });
-  return session?.user?.id ?? null;
-}
-
 export async function GET(
   _req: Request,
   ctx: { params: Promise<{ id: string }> },
 ) {
-  if (!(await requireUserId()))
-    return Response.json({ error: "unauthorized" }, { status: 401 });
   const { id } = await ctx.params;
   if (!(await getAccount(id)))
     return Response.json({ error: "not-found" }, { status: 404 });
@@ -37,8 +28,6 @@ export async function POST(
   req: Request,
   ctx: { params: Promise<{ id: string }> },
 ) {
-  if (!(await requireUserId()))
-    return Response.json({ error: "unauthorized" }, { status: 401 });
   const { id: accountId } = await ctx.params;
   const account = await getAccount(accountId);
   if (!account) return Response.json({ error: "not-found" }, { status: 404 });

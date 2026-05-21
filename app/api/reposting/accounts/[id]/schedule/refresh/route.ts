@@ -1,5 +1,3 @@
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
 import { getAccount } from "@/lib/reposting/accounts-store";
 import { readResolvedConfig } from "@/lib/reposting/config-store";
 import {
@@ -36,17 +34,10 @@ async function fetchFbStatus(fbPostId: string, token: string): Promise<FbStatus>
   }
 }
 
-async function requireUserId(): Promise<string | null> {
-  const session = await auth.api.getSession({ headers: await headers() });
-  return session?.user?.id ?? null;
-}
-
 export async function POST(
   _req: Request,
   ctx: { params: Promise<{ id: string }> },
 ) {
-  if (!(await requireUserId()))
-    return Response.json({ error: "unauthorized" }, { status: 401 });
   const { id: accountId } = await ctx.params;
   if (!(await getAccount(accountId)))
     return Response.json({ error: "not-found" }, { status: 404 });

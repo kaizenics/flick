@@ -30,7 +30,7 @@ export function getOauthEnv(): {
     );
   }
   const explicit = process.env.YT_OAUTH_REDIRECT_URI;
-  const base = process.env.BETTER_AUTH_URL?.replace(/\/$/, "");
+  const base = process.env.APP_BASE_URL?.replace(/\/$/, "");
   const redirectUri = explicit ?? `${base ?? "http://localhost:3000"}/api/reposting/oauth/youtube/callback`;
   return { clientId, clientSecret, redirectUri };
 }

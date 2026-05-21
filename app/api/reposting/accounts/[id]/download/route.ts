@@ -1,6 +1,4 @@
 import { readFile, rm } from "node:fs/promises";
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
 import { getAccount } from "@/lib/reposting/accounts-store";
 import { downloadVideo } from "@/lib/reposting/download";
 
@@ -11,11 +9,6 @@ type DownloadBody = {
   url?: string;
   urls?: string[];
 };
-
-async function requireUserId(): Promise<string | null> {
-  const session = await auth.api.getSession({ headers: await headers() });
-  return session?.user?.id ?? null;
-}
 
 function guessNameFromUrl(rawUrl: string): string {
   try {
@@ -141,9 +134,6 @@ export async function POST(
   req: Request,
   ctx: { params: Promise<{ id: string }> },
 ) {
-  if (!(await requireUserId()))
-    return Response.json({ error: "unauthorized" }, { status: 401 });
-
   const { id } = await ctx.params;
   if (!(await getAccount(id)))
     return Response.json({ error: "not-found" }, { status: 404 });

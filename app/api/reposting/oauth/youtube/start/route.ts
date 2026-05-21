@@ -1,14 +1,9 @@
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
 import { getAccount } from "@/lib/reposting/accounts-store";
 import { buildAuthorizeUrl } from "@/lib/reposting/youtube-oauth";
 
 export const runtime = "nodejs";
 
 export async function GET(req: Request) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session?.user?.id)
-    return Response.json({ error: "unauthorized" }, { status: 401 });
   const url = new URL(req.url);
   const accountId = url.searchParams.get("accountId");
   if (!accountId)
