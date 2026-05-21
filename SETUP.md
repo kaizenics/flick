@@ -213,12 +213,16 @@ flow at creation time and holds its own destination credentials and history.
 
 | Flow | Source | Destination | Credentials needed |
 | --- | --- | --- | --- |
-| `yt-to-fb` | YouTube Shorts URL | Facebook Page | YouTube API key (shared), Facebook Page Access Token + Page ID (per account) |
+| `yt-to-fb` | YouTube Shorts URL (+ manual Discover) | Facebook Page | YouTube API key (shared), Facebook Page Access Token + Page ID (per account) |
 | `ig-to-yt` | Instagram Reel URL | YouTube channel | Google OAuth client (shared, env), per-account YouTube channel via OAuth |
 
 Shared credentials (`YouTube API key`, `OpenRouter API key`, `OpenRouter model`)
 live in `data/reposting/shared.json` and are used by every account. Per-account
 credentials live in `data/reposting/<id>/`.
+
+For `yt-to-fb`, the **Discover** panel uses public YouTube metadata via
+YouTube Data API v3 and stores per-account discovery candidates in
+`data/reposting/<id>/candidates.json`.
 
 ## YouTube OAuth setup (for `ig-to-yt`)
 
@@ -260,6 +264,7 @@ youtube.com → Settings → Channel status and features.
 2. Fill in **Shared settings** (YouTube API key, OpenRouter key) → Save.
 3. Click **+ Add Account** → pick a flow → name it.
 4. **For `yt-to-fb`:** fill the Facebook Page Access Token + Page ID, Save.
+   (Optional) Use the **Discover** card to find short-form YouTube candidates.
 5. **For `ig-to-yt`:** click **Connect YouTube**, complete OAuth.
 6. In the queue, paste a source URL (Shorts or Reel depending on flow):
    - Set a **Scheduled at** time at least 11 minutes in the future, or

@@ -5,7 +5,8 @@ Linux machine or VPS, not a serverless platform.
 
 Two pillars:
 
-- **Reposting pipeline** — paste a YouTube Shorts URL, let an LLM write a
+- **Reposting pipeline** — paste a YouTube Shorts URL (or use Discover for
+  manual YouTube candidate discovery), let an LLM write a
   Facebook caption, and post (or natively schedule) to a Facebook Page.
   Powered by the Graph API, so scheduling is handed off to Facebook itself
   rather than depending on this app to be online at the publish time.
