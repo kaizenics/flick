@@ -507,7 +507,7 @@ export function RepostingPanel() {
       .map(({ index }) => index);
     if (valid.length === 0) {
       toast.error(
-        activeAccount.flow === "yt-to-fb"
+        activeAccount.flow === "yt-to-fb"               
           ? "Add at least one YouTube URL"
           : activeAccount.flow === "ig-to-yt"
             ? "Add at least one Instagram Reel URL"
