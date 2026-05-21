@@ -47,6 +47,11 @@ import {
   Unplug,
   Square,
   Download,
+  Flame,
+  RefreshCcw,
+  ShieldAlert,
+  Sparkles,
+  Brain,
 } from "lucide-react";
 import { toast } from "sonner";
 import { YoutubeIcon, InstagramIcon, FacebookIcon, TiktokIcon } from "@/components/icons/brand";
@@ -154,6 +159,87 @@ type DiscoverCandidate = {
   discoveredAt: string;
   firstSeenAt: string;
   lastSeenAt: string;
+  viralScore?: number;
+  scoreBreakdown?: {
+    velocity: number;
+    freshness: number;
+    engagement: number;
+    relevance: number;
+    feedback: number;
+    total: number;
+  };
+  matchedKeywords?: string[];
+  sourceQuery?: string;
+  channelStatsSnapshot?: {
+    posted: number;
+    failed: number;
+    totalSeen: number;
+  };
+  lastEvaluatedAt?: string;
+};
+
+type ViralProfile = {
+  niche: string;
+  audience: string;
+  language: string;
+  seedKeywords: string[];
+  excludeKeywords: string[];
+  autoRefreshEnabled: boolean;
+  autoRefreshMinutes: number;
+  minViralScore: number;
+  autoAppendEnabled: boolean;
+};
+
+type SafetyRiskLevel = "safe" | "review" | "block";
+type PreflightApprovalStatus = "pending" | "approved" | "blocked" | "overridden";
+
+type CaptionVariant = {
+  id: string;
+  text: string;
+  hookType: string;
+  rationale: string;
+};
+
+type SafetyAssessment = {
+  riskLevel: SafetyRiskLevel;
+  categories: string[];
+  reasons: string[];
+  suggestedRewrite: string;
+};
+
+type PreflightItemState = {
+  url: string;
+  videoId: string;
+  title: string;
+  variants: CaptionVariant[];
+  safetyByVariant: Record<string, SafetyAssessment>;
+  selectedVariantId: string | null;
+  approvalStatus: PreflightApprovalStatus;
+  overrideReason: string | null;
+  reviewedAt: string | null;
+  generatedAt: string;
+  blockReasons: string[];
+};
+
+type CoachReport = {
+  generatedAt: string;
+  windowStart: string;
+  windowEnd: string;
+  metrics: {
+    total: number;
+    posted: number;
+    scheduled: number;
+    failed: number;
+    deleted: number;
+    avgCaptionLength: number;
+    avgHashtags: number;
+    topChannels: Array<{ channel: string; count: number }>;
+    timeBuckets: Array<{ bucket: string; count: number }>;
+  };
+  findings: string[];
+  recommendations: string[];
+  playbook: string[];
+  insufficientData?: boolean;
 };
 
 function defaultScheduledAt(offsetMinutes: number): string {
@@ -204,6 +290,35 @@ function formatCount(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
   return String(n);
+}
+
+function parseKeywordList(input: string): string[] {
+  return Array.from(
+    new Set(
+      input
+        .split(",")
+        .map((part) => part.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  );
+}
+
+function stringifyKeywordList(items: string[]): string {
+  return items.join(", ");
+}
+
+function dateKey(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function preflightStatusTone(status: PreflightApprovalStatus): string {
+  if (status === "approved") return "text-green-600";
+  if (status === "overridden") return "text-amber-600";
+  if (status === "blocked") return "text-red-600";
+  return "text-muted-foreground";
 }
 
 const blankRow = (offset = 20): QueueItem => ({
@@ -257,6 +372,26 @@ export function RepostingPanel() {
   const [discoverFreshnessDays, setDiscoverFreshnessDays] = useState(7);
   const [discovering, setDiscovering] = useState(false);
   const [discoverClearing, setDiscoverClearing] = useState(false);
+  const [preflightItems, setPreflightItems] = useState<Record<string, PreflightItemState>>({});
+  const [runningPreflight, setRunningPreflight] = useState(false);
+  const [approvingPreflight, setApprovingPreflight] = useState<string | null>(null);
+  const [coachReport, setCoachReport] = useState<CoachReport | null>(null);
+  const [runningCoach, setRunningCoach] = useState(false);
+  const [viralProfile, setViralProfile] = useState<ViralProfile | null>(null);
+  const [savingViralProfile, setSavingViralProfile] = useState(false);
+  const [runningViral, setRunningViral] = useState(false);
+  const [appendingTop, setAppendingTop] = useState(false);
+  const [autoCycleTick, setAutoCycleTick] = useState(0);
+
+  const [nicheDraft, setNicheDraft] = useState("");
+  const [audienceDraft, setAudienceDraft] = useState("");
+  const [languageDraft, setLanguageDraft] = useState("");
+  const [seedKeywordsDraft, setSeedKeywordsDraft] = useState("");
+  const [excludeKeywordsDraft, setExcludeKeywordsDraft] = useState("");
+  const [autoRefreshEnabledDraft, setAutoRefreshEnabledDraft] = useState(false);
+  const [autoRefreshMinutesDraft, setAutoRefreshMinutesDraft] = useState(360);
+  const [minViralScoreDraft, setMinViralScoreDraft] = useState(65);
+  const [autoAppendEnabledDraft, setAutoAppendEnabledDraft] = useState(false);
 
   const append = (line: string) => setLog((l) => [...l, line]);
 
@@ -521,7 +656,11 @@ export function RepostingPanel() {
       const res = await fetch(`/api/reposting/accounts/${id}/discover`);
       if (!res.ok) return;
       const data = (await res.json()) as { items: DiscoverCandidate[] };
-      setCandidates(data.items);
+      setCandidates(
+        [...data.items].sort(
+          (a, b) => (b.viralScore ?? -1) - (a.viralScore ?? -1) || b.viewCount - a.viewCount,
+        ),
+      );
       setCandidateSelection((prev) => {
         const next: Record<string, boolean> = {};
         for (const item of data.items) {
@@ -531,6 +670,190 @@ export function RepostingPanel() {
       });
     } catch {
       // ignore
+    }
+  };
+
+  const refreshPreflight = async (id: string) => {
+    try {
+      const res = await fetch(`/api/reposting/accounts/${id}/ai/preflight`);
+      if (!res.ok) {
+        setPreflightItems({});
+        return;
+      }
+      const data = (await res.json()) as { items: PreflightItemState[] };
+      const next: Record<string, PreflightItemState> = {};
+      for (const item of data.items ?? []) {
+        next[canonicalYoutubeUrl(item.url)] = item;
+      }
+      setPreflightItems(next);
+    } catch {
+      // ignore
+    }
+  };
+
+  const refreshCoach = async (id: string) => {
+    try {
+      const res = await fetch(`/api/reposting/accounts/${id}/ai/coach`);
+      if (!res.ok) {
+        setCoachReport(null);
+        return;
+      }
+      const data = (await res.json()) as { report: CoachReport | null };
+      setCoachReport(data.report ?? null);
+    } catch {
+      // ignore
+    }
+  };
+
+  const runPreflight = async () => {
+    if (!activeId || !activeAccount || activeAccount.flow !== "yt-to-fb") return;
+    const queue = items
+      .filter((it) => it.url.trim().length > 0)
+      .map((it) => ({
+        url: canonicalYoutubeUrl(it.url),
+        caption: it.caption,
+        comment: it.comment,
+      }));
+    if (queue.length === 0) {
+      toast.error("Add at least one YouTube URL first");
+      return;
+    }
+    setRunningPreflight(true);
+    try {
+      const res = await fetch(`/api/reposting/accounts/${activeId}/ai/preflight`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: queue }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        items?: PreflightItemState[];
+        error?: string;
+      };
+      if (!res.ok) throw new Error(data.error ?? `Preflight failed (${res.status})`);
+      const next: Record<string, PreflightItemState> = {};
+      for (const item of data.items ?? []) {
+        next[canonicalYoutubeUrl(item.url)] = item;
+      }
+      setPreflightItems(next);
+      toast.success(`AI preflight completed for ${Object.keys(next).length} URL(s)`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Preflight failed");
+    } finally {
+      setRunningPreflight(false);
+    }
+  };
+
+  const approvePreflight = async (args: {
+    url: string;
+    variantId: string;
+    overrideReason?: string;
+  }) => {
+    if (!activeId || !activeAccount || activeAccount.flow !== "yt-to-fb") return;
+    setApprovingPreflight(args.url);
+    try {
+      const res = await fetch(`/api/reposting/accounts/${activeId}/ai/preflight/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(args),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        item?: PreflightItemState;
+        error?: string;
+      };
+      if (!res.ok) throw new Error(data.error ?? `Approve failed (${res.status})`);
+      if (data.item) {
+        const key = canonicalYoutubeUrl(data.item.url);
+        setPreflightItems((prev) => ({ ...prev, [key]: data.item as PreflightItemState }));
+      }
+      toast.success("Preflight approval saved");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Approve failed");
+    } finally {
+      setApprovingPreflight(null);
+    }
+  };
+
+  const refreshCoachNow = async () => {
+    if (!activeId || !activeAccount || activeAccount.flow !== "yt-to-fb") return;
+    setRunningCoach(true);
+    try {
+      const res = await fetch(`/api/reposting/accounts/${activeId}/ai/coach`, {
+        method: "POST",
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        report?: CoachReport;
+        error?: string;
+      };
+      if (!res.ok) throw new Error(data.error ?? `Coach refresh failed (${res.status})`);
+      setCoachReport(data.report ?? null);
+      toast.success("Weekly AI coach refreshed");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Coach refresh failed");
+    } finally {
+      setRunningCoach(false);
+    }
+  };
+
+  const refreshViralProfile = async (id: string) => {
+    try {
+      const res = await fetch(`/api/reposting/accounts/${id}/discover/viral-profile`);
+      if (!res.ok) {
+        setViralProfile(null);
+        return;
+      }
+      const data = (await res.json()) as ViralProfile;
+      setViralProfile(data);
+      setNicheDraft(data.niche);
+      setAudienceDraft(data.audience);
+      setLanguageDraft(data.language);
+      setSeedKeywordsDraft(stringifyKeywordList(data.seedKeywords));
+      setExcludeKeywordsDraft(stringifyKeywordList(data.excludeKeywords));
+      setAutoRefreshEnabledDraft(data.autoRefreshEnabled);
+      setAutoRefreshMinutesDraft(data.autoRefreshMinutes);
+      setMinViralScoreDraft(data.minViralScore);
+      setAutoAppendEnabledDraft(data.autoAppendEnabled);
+    } catch {
+      // ignore
+    }
+  };
+
+  const saveViralProfile = async () => {
+    if (!activeId || !activeAccount || activeAccount.flow !== "yt-to-fb") return;
+    setSavingViralProfile(true);
+    try {
+      const payload: ViralProfile = {
+        niche: nicheDraft.trim(),
+        audience: audienceDraft.trim(),
+        language: languageDraft.trim(),
+        seedKeywords: parseKeywordList(seedKeywordsDraft),
+        excludeKeywords: parseKeywordList(excludeKeywordsDraft),
+        autoRefreshEnabled: autoRefreshEnabledDraft,
+        autoRefreshMinutes: autoRefreshMinutesDraft,
+        minViralScore: minViralScoreDraft,
+        autoAppendEnabled: autoAppendEnabledDraft,
+      };
+      const res = await fetch(`/api/reposting/accounts/${activeId}/discover/viral-profile`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = (await res.json()) as ViralProfile;
+      setViralProfile(data);
+      setNicheDraft(data.niche);
+      setAudienceDraft(data.audience);
+      setLanguageDraft(data.language);
+      setSeedKeywordsDraft(stringifyKeywordList(data.seedKeywords));
+      setExcludeKeywordsDraft(stringifyKeywordList(data.excludeKeywords));
+      setAutoRefreshEnabledDraft(data.autoRefreshEnabled);
+      setAutoRefreshMinutesDraft(data.autoRefreshMinutes);
+      setMinViralScoreDraft(data.minViralScore);
+      setAutoAppendEnabledDraft(data.autoAppendEnabled);
+      toast.success("Viral profile saved");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSavingViralProfile(false);
     }
   };
 
@@ -561,7 +884,11 @@ export function RepostingPanel() {
       if (!res.ok) {
         throw new Error(data.error ?? `Discover failed (${res.status})`);
       }
-      setCandidates(data.items ?? []);
+      setCandidates(
+        [...(data.items ?? [])].sort(
+          (a, b) => (b.viralScore ?? -1) - (a.viralScore ?? -1) || b.viewCount - a.viewCount,
+        ),
+      );
       setCandidateSelection({});
       toast.success(
         `Discover complete: ${data.added ?? 0} new, ${data.updated ?? 0} updated`,
@@ -588,6 +915,134 @@ export function RepostingPanel() {
       toast.error(e instanceof Error ? e.message : "Clear failed");
     } finally {
       setDiscoverClearing(false);
+    }
+  };
+
+  const appendTopCandidates = async (opts?: { silent?: boolean }) => {
+    if (!activeId || !activeAccount || activeAccount.flow !== "yt-to-fb") return;
+    setAppendingTop(true);
+    try {
+      const today = dateKey(new Date());
+      const queueToday = items.filter((it) => {
+        const parsed = new Date(it.scheduledAt);
+        if (Number.isNaN(parsed.getTime())) return false;
+        return dateKey(parsed) === today;
+      }).length;
+      const historyToday = history.filter((r) => {
+        const parsed = new Date(r.scheduledAt || r.createdAt);
+        if (Number.isNaN(parsed.getTime())) return false;
+        return dateKey(parsed) === today && (r.status === "scheduled" || r.status === "posted");
+      }).length;
+
+      const res = await fetch(`/api/reposting/accounts/${activeId}/discover/append-top`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          existingTodayCount: queueToday + historyToday,
+          queueUrls: items.map((it) => it.url),
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        selectedUrls?: string[];
+        cap?: number;
+        remainingSlots?: number;
+        skipped?: { lowScore: number; duplicate: number; capLimited: number };
+        error?: string;
+      };
+      if (!res.ok) throw new Error(data.error ?? `Append top failed (${res.status})`);
+
+      const selected = data.selectedUrls ?? [];
+      if (selected.length === 0) {
+        if (!opts?.silent) {
+          toast.info(
+            `No candidates appended. Slots: ${data.remainingSlots ?? 0}, low-score skipped: ${data.skipped?.lowScore ?? 0}.`,
+          );
+        }
+        return;
+      }
+
+      const queueSet = new Set(items.map((it) => canonicalYoutubeUrl(it.url)));
+      const historySet = new Set(history.map((h) => canonicalYoutubeUrl(h.url)));
+      const toAdd: string[] = [];
+      for (const raw of selected) {
+        const url = canonicalYoutubeUrl(raw);
+        if (queueSet.has(url) || historySet.has(url) || toAdd.includes(url)) continue;
+        toAdd.push(url);
+      }
+      if (toAdd.length === 0) {
+        if (!opts?.silent) toast.info("Nothing appended after final local dedup.");
+        return;
+      }
+
+      setItems((prev) => {
+        const next = [...prev];
+        for (const url of toAdd) {
+          const last = next.at(-1);
+          const scheduledAt = last ? nextDayFrom(last.scheduledAt) : null;
+          next.push({
+            ...blankRow(),
+            url,
+            scheduledAt: scheduledAt ?? defaultScheduledAt(20),
+            publishNow: false,
+          });
+        }
+        return next;
+      });
+
+      if (!opts?.silent) {
+        toast.success(
+          `Appended ${toAdd.length} top candidate${toAdd.length === 1 ? "" : "s"} (daily cap ${data.cap ?? "-"}).`,
+        );
+      }
+    } catch (e) {
+      if (!opts?.silent) {
+        toast.error(e instanceof Error ? e.message : "Append top failed");
+      }
+    } finally {
+      setAppendingTop(false);
+    }
+  };
+
+  const runViralNow = async (opts?: { silent?: boolean }) => {
+    if (!activeId || !activeAccount || activeAccount.flow !== "yt-to-fb") return;
+    setRunningViral(true);
+    try {
+      const res = await fetch(`/api/reposting/accounts/${activeId}/discover/viral-run`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          maxResults: discoverMaxResults,
+          freshnessDays: discoverFreshnessDays,
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        items?: DiscoverCandidate[];
+        added?: number;
+        updated?: number;
+        queries?: string[];
+        error?: string;
+      };
+      if (!res.ok) throw new Error(data.error ?? `Viral run failed (${res.status})`);
+      const ranked = [...(data.items ?? [])].sort(
+        (a, b) => (b.viralScore ?? -1) - (a.viralScore ?? -1) || b.viewCount - a.viewCount,
+      );
+      setCandidates(ranked);
+      setCandidateSelection({});
+      if (!opts?.silent) {
+        toast.success(
+          `Viral run complete: ${data.added ?? 0} new, ${data.updated ?? 0} updated, ${data.queries?.length ?? 0} queries.`,
+        );
+      }
+      const profile = viralProfile;
+      if (profile?.autoAppendEnabled) {
+        await appendTopCandidates({ silent: Boolean(opts?.silent) });
+      }
+    } catch (e) {
+      if (!opts?.silent) {
+        toast.error(e instanceof Error ? e.message : "Viral run failed");
+      }
+    } finally {
+      setRunningViral(false);
     }
   };
 
@@ -677,11 +1132,11 @@ export function RepostingPanel() {
       toast.error("Connect a YouTube account first");
       return;
     }
-    const valid = items.filter((it) => it.url.trim().length > 0);
-    const submittedIndices = items
+    const validRows = items
       .map((it, index) => ({ item: it, index }))
-      .filter(({ item }) => item.url.trim().length > 0)
-      .map(({ index }) => index);
+      .filter(({ item }) => item.url.trim().length > 0);
+    const submittedIndices = validRows.map(({ index }) => index);
+    let valid = validRows.map(({ item }) => item);
     if (valid.length === 0) {
       toast.error(
         activeAccount.flow === "yt-to-fb"               
@@ -692,6 +1147,42 @@ export function RepostingPanel() {
       );
       return;
     }
+
+    if (activeAccount.flow === "yt-to-fb") {
+      const missing: string[] = [];
+      const blocked: string[] = [];
+      const nextValid = valid.map((item) => {
+        const key = canonicalYoutubeUrl(item.url);
+        const pf = preflightItems[key];
+        if (!pf) {
+          missing.push(key);
+          return item;
+        }
+        if (!pf.selectedVariantId || !["approved", "overridden"].includes(pf.approvalStatus)) {
+          blocked.push(key);
+          return item;
+        }
+        const chosen = pf.variants.find((v) => v.id === pf.selectedVariantId);
+        if (!chosen?.text.trim()) {
+          blocked.push(key);
+          return item;
+        }
+        return { ...item, url: key, caption: chosen.text.trim() };
+      });
+
+      if (missing.length > 0) {
+        toast.error("AI preflight missing for one or more URLs. Run AI preflight first.");
+        return;
+      }
+      if (blocked.length > 0) {
+        toast.error(
+          "Some URLs are not approved. Approve safe captions or provide override reasons for blocked ones.",
+        );
+        return;
+      }
+      valid = nextValid;
+    }
+
     setLog([]);
     setRunning(true);
     append(`Submitting ${valid.length} item(s)…`);
@@ -877,6 +1368,8 @@ export function RepostingPanel() {
     }
   };
 
+  const activeAccount = accounts.find((a) => a.id === activeId) ?? null;
+
   // ---- effects ----
   useEffect(() => {
     void refreshAccounts();
@@ -901,6 +1394,9 @@ export function RepostingPanel() {
       setItems([blankRow()]);
       setCandidates([]);
       setCandidateSelection({});
+      setPreflightItems({});
+      setCoachReport(null);
+      setViralProfile(null);
       setPageId("");
       setFbTokenDraft("");
       return;
@@ -910,6 +1406,9 @@ export function RepostingPanel() {
     void refreshHistory(activeId);
     void pollPublishStatus(activeId);
     void refreshCandidates(activeId);
+    void refreshPreflight(activeId);
+    void refreshCoach(activeId);
+    void refreshViralProfile(activeId);
     const savedQueue = localStorage.getItem(`reposting:queue:${activeId}`);
     if (savedQueue) {
       try {
@@ -938,7 +1437,42 @@ export function RepostingPanel() {
     return () => clearInterval(interval);
   }, [history, activeId]);
 
-  const activeAccount = accounts.find((a) => a.id === activeId) ?? null;
+  useEffect(() => {
+    if (!activeId || !activeAccount || activeAccount.flow !== "yt-to-fb") return;
+    if (!viralProfile?.autoRefreshEnabled) return;
+    const everyMinutes = Math.max(15, viralProfile.autoRefreshMinutes || 360);
+    const interval = setInterval(() => {
+      setAutoCycleTick((n) => n + 1);
+    }, everyMinutes * 60_000);
+    return () => clearInterval(interval);
+  }, [activeId, activeAccount, viralProfile?.autoRefreshEnabled, viralProfile?.autoRefreshMinutes]);
+
+  useEffect(() => {
+    if (autoCycleTick === 0) return;
+    if (!activeId || !activeAccount || activeAccount.flow !== "yt-to-fb") return;
+    if (!viralProfile?.autoRefreshEnabled) return;
+    if (running || runningViral || appendingTop) return;
+    void runViralNow({ silent: true });
+  }, [
+    autoCycleTick,
+    activeId,
+    activeAccount,
+    viralProfile?.autoRefreshEnabled,
+    running,
+    runningViral,
+    appendingTop,
+  ]);
+
+  const ytQueueUrls =
+    activeAccount?.flow === "yt-to-fb"
+      ? Array.from(
+          new Set(
+            items
+              .map((it) => canonicalYoutubeUrl(it.url))
+              .filter((url) => url.trim().length > 0),
+          ),
+        )
+      : [];
 
   return (
     <>
@@ -1240,22 +1774,137 @@ export function RepostingPanel() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-base">
-                    <YoutubeIcon size={16} className="text-[#ff0000]" />
-                    Discover (YouTube)
+                    <Flame className="size-4 text-orange-500" />
+                    Viral Finder (YouTube)
                   </CardTitle>
                   <CardDescription>
-                    Manual discovery only. Public YouTube metadata with short-form filtering (≤ 3 minutes).
+                    Score-based discovery for short-form candidates (≤ 3 minutes), plus manual query mode.
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className="space-y-5">
+                  <div className="rounded-md border p-3">
+                    <div className="mb-3 text-sm font-medium">Niche profile</div>
+                    <div className="grid gap-3 md:grid-cols-3">
+                      <div>
+                        <Label className="text-xs">Niche</Label>
+                        <Input
+                          placeholder="e.g. ai tools, football edits, travel hacks"
+                          value={nicheDraft}
+                          onChange={(e) => setNicheDraft(e.target.value)}
+                          disabled={savingViralProfile || runningViral}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Audience</Label>
+                        <Input
+                          placeholder="e.g. students, beginners, gamers"
+                          value={audienceDraft}
+                          onChange={(e) => setAudienceDraft(e.target.value)}
+                          disabled={savingViralProfile || runningViral}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Language</Label>
+                        <Input
+                          placeholder="e.g. english, bahasa"
+                          value={languageDraft}
+                          onChange={(e) => setLanguageDraft(e.target.value)}
+                          disabled={savingViralProfile || runningViral}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Seed keywords (comma-separated)</Label>
+                        <Input
+                          placeholder="ai tools, productivity, money tips"
+                          value={seedKeywordsDraft}
+                          onChange={(e) => setSeedKeywordsDraft(e.target.value)}
+                          disabled={savingViralProfile || runningViral}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Exclude keywords (comma-separated)</Label>
+                        <Input
+                          placeholder="politics, nsfw, controversy"
+                          value={excludeKeywordsDraft}
+                          onChange={(e) => setExcludeKeywordsDraft(e.target.value)}
+                          disabled={savingViralProfile || runningViral}
+                        />
+                      </div>
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <div>
+                          <Label className="text-xs">Min viral score</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={minViralScoreDraft}
+                            onChange={(e) =>
+                              setMinViralScoreDraft(
+                                Number.isFinite(Number(e.target.value))
+                                  ? Number(e.target.value)
+                                  : 65,
+                              )
+                            }
+                            disabled={savingViralProfile || runningViral}
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Auto-refresh (minutes)</Label>
+                          <Input
+                            type="number"
+                            min={15}
+                            max={1440}
+                            value={autoRefreshMinutesDraft}
+                            onChange={(e) =>
+                              setAutoRefreshMinutesDraft(
+                                Number.isFinite(Number(e.target.value))
+                                  ? Number(e.target.value)
+                                  : 360,
+                              )
+                            }
+                            disabled={savingViralProfile || runningViral}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={autoRefreshEnabledDraft}
+                          onChange={(e) => setAutoRefreshEnabledDraft(e.target.checked)}
+                          disabled={savingViralProfile || runningViral}
+                        />
+                        Auto-refresh while this page is open
+                      </label>
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={autoAppendEnabledDraft}
+                          onChange={(e) => setAutoAppendEnabledDraft(e.target.checked)}
+                          disabled={savingViralProfile || runningViral}
+                        />
+                        Auto-append top candidates after each viral run
+                      </label>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => void saveViralProfile()}
+                        disabled={savingViralProfile || runningViral}
+                      >
+                        {savingViralProfile ? "Saving…" : "Save viral profile"}
+                      </Button>
+                    </div>
+                  </div>
+
                   <div className="grid gap-3 md:grid-cols-[1fr_120px_120px_auto]">
                     <div>
-                      <Label className="text-xs">Query</Label>
+                      <Label className="text-xs">Manual query</Label>
                       <Input
                         placeholder="e.g. ai tools, football clips, travel hacks"
                         value={discoverQuery}
                         onChange={(e) => setDiscoverQuery(e.target.value)}
-                        disabled={discovering}
+                        disabled={discovering || runningViral}
                       />
                     </div>
                     <div>
@@ -1272,7 +1921,7 @@ export function RepostingPanel() {
                               : 10,
                           )
                         }
-                        disabled={discovering}
+                        disabled={discovering || runningViral}
                       />
                     </div>
                     <div>
@@ -1289,17 +1938,32 @@ export function RepostingPanel() {
                               : 7,
                           )
                         }
-                        disabled={discovering}
+                        disabled={discovering || runningViral}
                       />
                     </div>
                     <div className="flex items-end">
-                      <Button onClick={() => void runDiscover()} disabled={discovering}>
-                        {discovering ? "Discovering…" : "Discover"}
+                      <Button onClick={() => void runDiscover()} disabled={discovering || runningViral}>
+                        {discovering ? "Discovering…" : "Manual discover"}
                       </Button>
                     </div>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => void runViralNow()}
+                      disabled={runningViral || discovering}
+                    >
+                      <Flame className="size-4" /> {runningViral ? "Running…" : "Run viral finder"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void appendTopCandidates()}
+                      disabled={appendingTop || runningViral || discovering || candidates.length === 0}
+                    >
+                      <Plus className="size-4" /> {appendingTop ? "Appending…" : "Append top to queue"}
+                    </Button>
                     <Button
                       size="sm"
                       variant="outline"
@@ -1312,23 +1976,38 @@ export function RepostingPanel() {
                       size="sm"
                       variant="outline"
                       onClick={() => void refreshCandidates(activeAccount.id)}
-                      disabled={discovering || discoverClearing}
+                      disabled={discovering || discoverClearing || runningViral}
                     >
-                      Refresh list
+                      <RefreshCcw className="size-4" /> Refresh list
                     </Button>
                     <Button
                       size="sm"
                       variant="ghost"
                       onClick={() => void clearDiscover()}
-                      disabled={discovering || discoverClearing || candidates.length === 0}
+                      disabled={discovering || discoverClearing || runningViral || candidates.length === 0}
                     >
                       {discoverClearing ? "Clearing…" : "Clear candidates"}
                     </Button>
                   </div>
 
+                  <div className="grid gap-3 md:grid-cols-[1fr_120px_120px_auto]">
+                    <div className="text-xs text-muted-foreground">
+                      Auto-refresh status:{" "}
+                      {viralProfile?.autoRefreshEnabled
+                        ? `ON (${viralProfile.autoRefreshMinutes}m interval, browser-session only)`
+                        : "OFF"}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Min viral score: {viralProfile?.minViralScore ?? minViralScoreDraft}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Auto-append: {viralProfile?.autoAppendEnabled ? "ON" : "OFF"}
+                    </div>
+                  </div>
+
                   {candidates.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
-                      No discovered candidates yet. Run Discover to fetch public YouTube videos.
+                      No discovered candidates yet. Run Viral Finder or Manual Discover.
                     </p>
                   ) : (
                     <div className="max-h-[360px] space-y-2 overflow-y-auto pr-1">
@@ -1349,7 +2028,21 @@ export function RepostingPanel() {
                             className="mt-1"
                           />
                           <div className="min-w-0 flex-1">
-                            <div className="truncate font-medium">{c.title || c.url}</div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <div className="truncate font-medium">{c.title || c.url}</div>
+                              {typeof c.viralScore === "number" && (
+                                <span
+                                  className="rounded-full border px-2 py-0.5 text-[11px] font-medium"
+                                  title={
+                                    c.scoreBreakdown
+                                      ? `velocity ${c.scoreBreakdown.velocity}, freshness ${c.scoreBreakdown.freshness}, engagement ${c.scoreBreakdown.engagement}, relevance ${c.scoreBreakdown.relevance}, feedback ${c.scoreBreakdown.feedback}`
+                                      : "no breakdown"
+                                  }
+                                >
+                                  Score {c.viralScore}
+                                </span>
+                              )}
+                            </div>
                             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                               <span>{c.channelTitle || "Unknown channel"}</span>
                               <span>·</span>
@@ -1360,7 +2053,18 @@ export function RepostingPanel() {
                               <span>{formatCount(c.likeCount)} likes</span>
                               <span>·</span>
                               <span>{Math.round(c.durationSeconds)}s</span>
+                              {c.sourceQuery ? (
+                                <>
+                                  <span>·</span>
+                                  <span>q: {c.sourceQuery}</span>
+                                </>
+                              ) : null}
                             </div>
+                            {c.matchedKeywords && c.matchedKeywords.length > 0 ? (
+                              <div className="mt-1 truncate text-xs text-muted-foreground">
+                                matched: {c.matchedKeywords.join(", ")}
+                              </div>
+                            ) : null}
                             <a
                               href={c.url}
                               target="_blank"
@@ -1378,6 +2082,228 @@ export function RepostingPanel() {
               </Card>
             )}
 
+            {activeAccount.flow === "yt-to-fb" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Sparkles className="size-4 text-indigo-500" />
+                    AI Copilot
+                  </CardTitle>
+                  <CardDescription>
+                    Preflight captions with 3 variants, safety screening, and explicit approval before scheduling.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => void runPreflight()}
+                      disabled={runningPreflight || running || ytQueueUrls.length === 0}
+                    >
+                      <Sparkles className="size-4" />{" "}
+                      {runningPreflight ? "Running preflight…" : "Run AI preflight"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void refreshPreflight(activeAccount.id)}
+                      disabled={runningPreflight || running}
+                    >
+                      <RefreshCcw className="size-4" /> Refresh preflight
+                    </Button>
+                  </div>
+
+                  {ytQueueUrls.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      Add queue URLs first, then run AI preflight.
+                    </p>
+                  ) : (
+                    <div className="max-h-[360px] space-y-3 overflow-y-auto pr-1">
+                      {ytQueueUrls.map((url) => {
+                        const pf = preflightItems[url];
+                        if (!pf) {
+                          return (
+                            <div key={url} className="rounded-md border p-3 text-sm">
+                              <div className="font-medium">{url}</div>
+                              <div className="mt-1 text-xs text-muted-foreground">
+                                No preflight record yet.
+                              </div>
+                            </div>
+                          );
+                        }
+                        return (
+                          <div key={url} className="rounded-md border p-3 text-sm">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <div className="truncate font-medium">{pf.title || url}</div>
+                                <div className="truncate text-xs text-muted-foreground">{url}</div>
+                              </div>
+                              <div className={`text-xs font-medium ${preflightStatusTone(pf.approvalStatus)}`}>
+                                {pf.approvalStatus.toUpperCase()}
+                              </div>
+                            </div>
+
+                            {pf.blockReasons.length > 0 && (
+                              <div className="mt-2 flex items-start gap-1 text-xs text-red-600">
+                                <ShieldAlert className="mt-0.5 size-3.5" />
+                                <span>{pf.blockReasons.join(" • ")}</span>
+                              </div>
+                            )}
+
+                            <div className="mt-2 space-y-2">
+                              {pf.variants.map((variant) => {
+                                const safety = pf.safetyByVariant[variant.id];
+                                const selected = pf.selectedVariantId === variant.id;
+                                return (
+                                  <div
+                                    key={variant.id}
+                                    className={`rounded-md border p-2 ${
+                                      selected ? "border-primary bg-primary/5" : "border-border"
+                                    }`}
+                                  >
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                      <div className="text-xs font-medium">
+                                        {variant.hookType || "general"}
+                                      </div>
+                                      <div className="text-[11px] text-muted-foreground">
+                                        risk: {safety?.riskLevel ?? "review"}
+                                      </div>
+                                    </div>
+                                    <div className="mt-1 text-xs">{variant.text}</div>
+                                    <div className="mt-2 flex flex-wrap gap-2">
+                                      <Button
+                                        size="sm"
+                                        variant={selected ? "default" : "outline"}
+                                        disabled={running || approvingPreflight === url}
+                                        onClick={() =>
+                                          void approvePreflight({
+                                            url,
+                                            variantId: variant.id,
+                                          })
+                                        }
+                                      >
+                                        {selected ? "Selected" : "Use + approve"}
+                                      </Button>
+                                      {(safety?.riskLevel === "review" ||
+                                        safety?.riskLevel === "block") && (
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          disabled={running || approvingPreflight === url}
+                                          onClick={() => {
+                                            const reason = window.prompt(
+                                              "Override reason (required):",
+                                              "Relevant to niche and acceptable for our page policy",
+                                            );
+                                            if (!reason?.trim()) return;
+                                            void approvePreflight({
+                                              url,
+                                              variantId: variant.id,
+                                              overrideReason: reason,
+                                            });
+                                          }}
+                                        >
+                                          Override with reason
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {activeAccount.flow === "yt-to-fb" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Brain className="size-4 text-cyan-600" />
+                    Weekly AI Coach
+                  </CardTitle>
+                  <CardDescription>
+                    Rolling 7-day insights based on local reposting history and candidate metadata.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => void refreshCoachNow()}
+                      disabled={runningCoach || running}
+                    >
+                      <Brain className="size-4" />{" "}
+                      {runningCoach ? "Refreshing…" : "Refresh insights"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void refreshCoach(activeAccount.id)}
+                      disabled={runningCoach || running}
+                    >
+                      <RefreshCcw className="size-4" /> Load cached report
+                    </Button>
+                  </div>
+
+                  {!coachReport ? (
+                    <p className="text-sm text-muted-foreground">
+                      No AI coach report yet. Click Refresh insights.
+                    </p>
+                  ) : (
+                    <div className="space-y-3 text-sm">
+                      <div className="text-xs text-muted-foreground">
+                        Window: {new Date(coachReport.windowStart).toLocaleString()} →{" "}
+                        {new Date(coachReport.windowEnd).toLocaleString()} · generated{" "}
+                        {new Date(coachReport.generatedAt).toLocaleString()}
+                      </div>
+                      <div className="grid gap-2 text-xs md:grid-cols-3">
+                        <div className="rounded-md border p-2">
+                          total {coachReport.metrics.total} · posted {coachReport.metrics.posted}
+                        </div>
+                        <div className="rounded-md border p-2">
+                          failed {coachReport.metrics.failed} · scheduled {coachReport.metrics.scheduled}
+                        </div>
+                        <div className="rounded-md border p-2">
+                          avg caption {coachReport.metrics.avgCaptionLength} chars · hashtags{" "}
+                          {coachReport.metrics.avgHashtags}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="mb-1 text-xs font-medium">Findings</div>
+                        {coachReport.findings.map((line, i) => (
+                          <div key={i} className="text-xs text-muted-foreground">
+                            • {line}
+                          </div>
+                        ))}
+                      </div>
+                      <div>
+                        <div className="mb-1 text-xs font-medium">Recommendations</div>
+                        {coachReport.recommendations.map((line, i) => (
+                          <div key={i} className="text-xs text-muted-foreground">
+                            • {line}
+                          </div>
+                        ))}
+                      </div>
+                      <div>
+                        <div className="mb-1 text-xs font-medium">Next 7-day playbook</div>
+                        {coachReport.playbook.map((line, i) => (
+                          <div key={i} className="text-xs text-muted-foreground">
+                            • {line}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -1386,7 +2312,7 @@ export function RepostingPanel() {
                 </CardTitle>
                 <CardDescription>
                   {activeAccount.flow === "yt-to-fb"
-                    ? "One YouTube Shorts URL per row."
+                    ? "One YouTube Shorts URL per row. AI preflight approval is required before scheduling."
                     : activeAccount.flow === "tt-to-fb"
                       ? "One TikTok URL per row. Caption is optional — leave blank to auto-generate with AI."
                       : "One Instagram Reel URL per row (public reels only)."}{" "}

@@ -43,6 +43,18 @@ export async function POST(
   const needsFbPage = account.flow === "yt-to-fb" || account.flow === "tt-to-fb";
   if (needsFbPage && !fbPageId)
     return Response.json({ error: "pageId required" }, { status: 400 });
+  if (account.flow === "yt-to-fb") {
+    const missingApprovedCaption = items.some((item) => !item.caption?.trim());
+    if (missingApprovedCaption) {
+      return Response.json(
+        {
+          error:
+            "AI preflight required: each yt-to-fb queue item must have an approved caption before scheduling.",
+        },
+        { status: 400 },
+      );
+    }
+  }
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
