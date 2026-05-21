@@ -84,38 +84,17 @@ nvm install --lts
 npm install -g pnpm
 ```
 
-### 3. A Turso (libSQL) database
+### 3. Local-only runtime mode
 
-The app uses Turso for both Better Auth user storage and workflow data.
+This app runs in **single-user local mode**. There is no app-level auth and no
+external database. Runtime state is stored under `data/`, including:
 
-**Quickest path:**
+- `data/workflows.json` (flow editor workflows)
+- `data/accounts*` (automation account state)
+- `data/reposting/*` (reposting account config, schedule, OAuth state)
 
-```bash
-# Install Turso CLI
-curl -sSfL https://get.tur.so/install.sh | bash
-
-# Sign up / log in
-turso auth signup   # or: turso auth login
-
-# Create a database (free tier is fine)
-turso db create fb-auto
-
-# Get the connection URL and an auth token
-turso db show fb-auto --url            # → libsql://fb-auto-<your-org>.turso.io
-turso db tokens create fb-auto         # → eyJhbGciOi…
-```
-
-Save both values — they go into `.env.local`.
-
-**Alternative — local SQLite file (dev only):**
-
-```
-TURSO_DATABASE_URL=file:./local.db
-TURSO_AUTH_TOKEN=
-```
-
-This works for local development but you lose multi-machine sync and any real
-production-readiness.
+> **Migration note:** workflow data is now local-only. Existing Turso workflow
+> rows are not migrated automatically.
 
 ---
 
@@ -139,27 +118,13 @@ cp .env.example .env.local
 
 Open `.env.local` and provide:
 
-- **`BETTER_AUTH_SECRET`** — generate with `openssl rand -base64 32`
-- **`BETTER_AUTH_URL`** — `http://localhost:3000` for dev,
+- **`APP_BASE_URL`** — `http://localhost:3000` for dev,
   `https://your-domain.tld` for production
-- **`TURSO_DATABASE_URL`** + **`TURSO_AUTH_TOKEN`** — from the Turso step above
-- **`GOOGLE_CLIENT_ID`** + **`GOOGLE_CLIENT_SECRET`** — see
-  [Google OAuth](#google-oauth-setup)
 
 The reposting-pipeline keys (YouTube, OpenRouter, Facebook) can be left blank
 in `.env.local` — they have a UI to manage them at runtime under
 `/reposting → Settings`. Setting them in `.env.local` is just a fallback. See
 [Reposting credentials](#reposting-credentials).
-
-### Run the database migration
-
-Better Auth needs its tables created in your Turso database:
-
-```bash
-pnpm auth:migrate
-```
-
-This is a one-shot. Re-run only if you upgrade `better-auth` in the future.
 
 ### Start the dev server
 
@@ -168,19 +133,7 @@ pnpm dev
 # → http://localhost:3000
 ```
 
-Sign in with Google. The first user becomes the admin. Note that
-`disableSignUp: true` is set in `lib/auth.ts` — you may need to flip that
-temporarily on the very first run, or seed your user row manually.
-
----
-
-## Google OAuth setup
-
-1. Go to <https://console.cloud.google.com/apis/credentials>.
-2. Create OAuth client ID → **Web application**.
-3. Authorized redirect URI: `http://localhost:3000/api/auth/callback/google`
-   (and `https://your-domain.tld/api/auth/callback/google` for production).
-4. Copy Client ID and Secret into `.env.local`.
+No sign-in step is required in local mode.
 
 ---
 
@@ -286,7 +239,7 @@ through the in-app **Connect YouTube** button.
    ```
    YT_OAUTH_CLIENT_ID=...
    YT_OAUTH_CLIENT_SECRET=...
-   # optional override; defaults to ${BETTER_AUTH_URL}/api/reposting/oauth/youtube/callback
+   # optional override; defaults to ${APP_BASE_URL}/api/reposting/oauth/youtube/callback
    # YT_OAUTH_REDIRECT_URI=
    ```
 5. Restart the dev server. In the app, create an `ig-to-yt` reposting account
@@ -365,9 +318,8 @@ pnpm exec playwright install --with-deps chromium
 
 # Configure
 cp .env.example .env.local
-# Edit .env.local — set BETTER_AUTH_URL=https://yourdomain.tld
+# Edit .env.local — set APP_BASE_URL=https://yourdomain.tld
 nano .env.local
-pnpm auth:migrate
 
 # Build
 pnpm build
@@ -429,8 +381,8 @@ Caddy automatically provisions Let's Encrypt certificates. Visit
 
 ### Post-deploy checklist
 
-- [ ] Update Google OAuth redirect URI to the production domain
-- [ ] Update `BETTER_AUTH_URL` in `.env.local` to the HTTPS URL
+- [ ] Update YouTube OAuth redirect URI to the production domain
+- [ ] Update `APP_BASE_URL` in `.env.local` to the HTTPS URL
 - [ ] Verify `data/` is owned by the service user and **backed up** (it
       contains your reposting config, schedule history, and FB session state)
 - [ ] Calendar reminder for FB Page token re-exchange (every ~50 days)

@@ -1,6 +1,5 @@
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { access } from "node:fs/promises";
+import { join } from "node:path";
 import {
   Card,
   CardContent,
@@ -8,106 +7,109 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { SignOutButton } from "@/components/profile/sign-out-button";
+
+async function pathExists(p: string): Promise<boolean> {
+  try {
+    await access(p);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function status(value: string | undefined): string {
+  return value && value.trim().length > 0 ? "configured" : "missing";
+}
 
 export default async function ProfilePage() {
-  const reqHeaders = await headers();
-  const session = await auth.api.getSession({ headers: reqHeaders });
-  if (!session) redirect("/login");
+  const root = process.cwd();
+  const dataDir = join(root, "data");
+  const workflowsFile = join(dataDir, "workflows.json");
+  const accountsFile = join(dataDir, "accounts.json");
+  const repostingDir = join(dataDir, "reposting");
 
-  const accounts = await auth.api.listUserAccounts({ headers: reqHeaders });
-  const googleConnected = accounts.some((a) => a.providerId === "google");
+  const envChecks = [
+    ["APP_BASE_URL", status(process.env.APP_BASE_URL)],
+    ["YT_OAUTH_CLIENT_ID", status(process.env.YT_OAUTH_CLIENT_ID)],
+    ["YT_OAUTH_CLIENT_SECRET", status(process.env.YT_OAUTH_CLIENT_SECRET)],
+    ["YOUTUBE_API_KEY", status(process.env.YOUTUBE_API_KEY)],
+    ["OPENROUTER_API_KEY", status(process.env.OPENROUTER_API_KEY)],
+  ] as const;
 
-  const { user } = session;
-  const displayName = user.name?.trim() || user.email.split("@")[0];
+  const paths = [
+    ["data/", await pathExists(dataDir)],
+    ["data/workflows.json", await pathExists(workflowsFile)],
+    ["data/accounts.json", await pathExists(accountsFile)],
+    ["data/reposting/", await pathExists(repostingDir)],
+  ] as const;
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-6 py-10">
+    <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-10">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Profile</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">System</h1>
         <p className="text-sm text-muted-foreground">
-          Your account details and connected providers.
+          Local-only mode is active. Authentication is disabled.
         </p>
       </div>
 
       <Card>
-        <CardHeader className="flex flex-row items-center gap-4">
-          <div className="flex aspect-square size-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-card text-lg font-medium">
-            {user.image ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={user.image}
-                alt={displayName}
-                className="size-full object-cover"
-              />
-            ) : (
-              displayName[0]?.toUpperCase()
-            )}
-          </div>
-          <div className="flex min-w-0 flex-col">
-            <CardTitle className="truncate">{displayName}</CardTitle>
-            <CardDescription className="truncate">{user.email}</CardDescription>
-          </div>
+        <CardHeader>
+          <CardTitle className="text-base">Mode</CardTitle>
+          <CardDescription>
+            Runtime assumptions for this private-machine deployment.
+          </CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <Field label="Name" value={user.name ?? "—"} />
-          <Field label="Email" value={user.email} />
-          <Field
-            label="Email verified"
-            value={user.emailVerified ? "Yes" : "No"}
-          />
-          <Field
-            label="Member since"
-            value={new Date(user.createdAt).toLocaleDateString()}
-          />
+        <CardContent className="space-y-2 text-sm">
+          <Field label="Access model" value="No auth (local trusted machine)" />
+          <Field label="Persistence" value="Local files under data/" />
+          <Field label="Project root" value={root} mono />
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Connected accounts</CardTitle>
+          <CardTitle className="text-base">Storage Paths</CardTitle>
           <CardDescription>
-            Sign-in providers linked to this account.
+            Presence check for key local files/directories.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between rounded-md border border-border p-4">
-            <div className="flex flex-col">
-              <span className="text-sm font-medium">Google</span>
-              <span className="text-xs text-muted-foreground">
-                {googleConnected
-                  ? "Linked — you can sign in with Google."
-                  : "Not linked."}
-              </span>
-            </div>
-            <span
-              className={
-                "rounded-full px-2.5 py-1 text-xs font-medium " +
-                (googleConnected
-                  ? "bg-emerald-500/10 text-emerald-500"
-                  : "bg-muted text-muted-foreground")
-              }
-            >
-              {googleConnected ? "Connected" : "Not connected"}
-            </span>
-          </div>
+        <CardContent className="space-y-2 text-sm">
+          {paths.map(([name, exists]) => (
+            <Field key={name} label={name} value={exists ? "present" : "missing"} />
+          ))}
         </CardContent>
       </Card>
 
-      <div className="flex justify-end">
-        <SignOutButton />
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Environment Diagnostics</CardTitle>
+          <CardDescription>
+            Non-secret configuration status only.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          {envChecks.map(([name, value]) => (
+            <Field key={name} label={name} value={value} />
+          ))}
+        </CardContent>
+      </Card>
     </main>
   );
 }
 
-function Field({ label, value }: { label: string; value: string }) {
+function Field({
+  label,
+  value,
+  mono,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
   return (
-    <div className="flex flex-col gap-1">
-      <span className="text-xs uppercase tracking-wider text-muted-foreground">
-        {label}
-      </span>
-      <span className="text-sm">{value}</span>
+    <div className="flex items-center justify-between gap-4 rounded-md border border-border bg-card/40 px-3 py-2">
+      <span className="text-xs uppercase tracking-wider text-muted-foreground">{label}</span>
+      <span className={mono ? "max-w-[60%] truncate font-mono text-xs" : "text-sm"}>{value}</span>
     </div>
   );
 }

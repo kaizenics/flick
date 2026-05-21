@@ -15,7 +15,7 @@ Two pillars:
   *as a Page* across many Pages from a single account.
 
 A workflow editor (XYFlow / React Flow) lets you compose these primitives
-into reusable pipelines, persisted per-user in a Turso database.
+into reusable pipelines, persisted locally in `data/workflows.json`.
 
 > ⚠️ **Not deployable to Vercel.** The reposting pipeline shells out to
 > `yt-dlp` and `ffmpeg`, writes to disk, and runs requests for several
@@ -32,8 +32,8 @@ into reusable pipelines, persisted per-user in a Turso database.
 | Framework        | **Next.js 16** (App Router, React Server Components)                                |
 | Language         | TypeScript 5, React 19                                                              |
 | Styling          | Tailwind CSS v4, [shadcn/ui](https://ui.shadcn.com), Radix UI primitives, Base UI   |
-| Auth             | [better-auth](https://better-auth.com) — email/password + Google OAuth              |
-| Database         | [Turso](https://turso.tech) (libSQL), accessed via [Kysely](https://kysely.dev)     |
+| Access model     | No auth (single-user private machine mode)                                           |
+| Data storage     | Local JSON files under `data/`                                                       |
 | Workflow editor  | [@xyflow/react](https://reactflow.dev)                                              |
 | Browser driver   | [Playwright](https://playwright.dev) (headless Chromium)                            |
 | Video tools      | `yt-dlp` (download), `ffmpeg` (merge to 1080p mp4) — system binaries                |
@@ -49,7 +49,7 @@ shells out — i.e. all reposting routes.
 
 ```
 app/
-  (app)/                     authenticated app routes (sidebar layout)
+  (app)/                     app routes (sidebar layout)
     reposting/               YouTube → FB queue + history UI
     flow/                    workflow editor
   api/
@@ -66,7 +66,7 @@ lib/
                              facebook.ts, config-store.ts, schedule-store.ts
   automation/                Playwright FB drivers (browser, pageSwitch,
                              follow, reactions, runner)
-  auth.ts, db.ts, store.ts, accounts.ts, logs.ts
+  store.ts, accounts.ts, logs.ts, workflows-store.ts
 data/                        runtime state (gitignored)
 ```
 
@@ -74,7 +74,7 @@ data/                        runtime state (gitignored)
 
 ## Getting started
 
-> Full walkthrough — including system binaries, Turso, Google OAuth, and
+> Full walkthrough — including system binaries, local-only mode, and
 > the Facebook Page Access Token dance — in **[SETUP.md](SETUP.md)**.
 
 Short version (Linux/WSL):
@@ -87,14 +87,14 @@ sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
 
 # App
 pnpm install
-cp .env.example .env.local        # fill in BETTER_AUTH_*, TURSO_*, GOOGLE_*
-pnpm auth:migrate
+cp .env.example .env.local        # fill in APP_BASE_URL + reposting keys
 pnpm dev
 ```
 
-Open <http://localhost:3000>, sign in with Google, then visit `/reposting`
-to configure your YouTube / OpenRouter / Facebook keys via the **Settings**
-card.
+Open <http://localhost:3000>, then visit `/reposting` to configure your
+YouTube / OpenRouter / Facebook keys via the **Settings** card.
+For `ig-to-yt`, set `APP_BASE_URL` to your public origin so OAuth callbacks
+resolve correctly.
 
 ---
 
@@ -161,8 +161,8 @@ The roadmap below is open for grabs — feel free to pick something and PR.
 - **FB Page token auto-refresh** — currently expires every ~60 days and the
   user has to re-do the Graph Explorer dance. A scheduled job to re-exchange
   the token would fix this.
-- **Per-user secrets** — `data/reposting-config.json` is single-user. Move
-  to a Kysely table keyed by `userId`.
+- **Secret hardening** — `data/` is local plaintext by design in single-user
+  mode. Optional encryption-at-rest is still on the roadmap.
 - **Resumable upload** for videos > 1 GB or > 20 minutes (FB's `/videos`
   endpoint maxes out; their Resumable Upload API is the path forward).
 - **Worker-mode option** for splitting the pipeline off the request-response
@@ -183,10 +183,9 @@ Open an issue with:
 
 ### Security
 
-If you find a security issue — anything that could let one user read or
-write another user's tokens, expose API keys, or bypass auth — **don't open
-a public issue**. Email the maintainer directly (see `package.json` →
-author / repo metadata).
+If you find a security issue — especially anything that could expose API keys
+or local automation/session data — **don't open a public issue**. Email the
+maintainer directly (see `package.json` → author / repo metadata).
 
 ---
 
