@@ -9,7 +9,6 @@ import {
   type PreflightItemState,
   type SafetyAssessment,
   type SafetyRiskLevel,
-  type PreflightApprovalStatus,
   updatePreflightItem,
   upsertPreflightItems,
 } from "./ai-preflight-store";
@@ -311,39 +310,22 @@ export async function runAiPreflight(
   return results;
 }
 
-function approvalFromSafety(
-  safety: SafetyAssessment,
-  overrideReason?: string,
-): PreflightApprovalStatus {
-  if (overrideReason?.trim()) return "overridden";
-  if (safety.riskLevel === "safe") return "approved";
-  return "blocked";
-}
-
 export async function approveAiPreflightItem(args: {
   accountId: string;
   url: string;
   variantId: string;
-  overrideReason?: string;
 }): Promise<PreflightItemState> {
   const item = await getPreflightItem(args.accountId, args.url);
   if (!item) throw new Error("preflight-not-found");
   const variantExists = item.variants.some((v) => v.id === args.variantId);
   if (!variantExists) throw new Error("variant-not-found");
-  const safety = item.safetyByVariant[args.variantId];
-  if (!safety) throw new Error("safety-not-found");
-
-  const status = approvalFromSafety(safety, args.overrideReason);
-  if ((safety.riskLevel === "block" || safety.riskLevel === "review") && !args.overrideReason?.trim()) {
-    throw new Error("override-reason-required");
-  }
 
   const updated = await updatePreflightItem(args.accountId, args.url, {
     selectedVariantId: args.variantId,
-    approvalStatus: status,
-    overrideReason: args.overrideReason?.trim() || null,
+    approvalStatus: "approved",
+    overrideReason: null,
     reviewedAt: new Date().toISOString(),
-    blockReasons: safety.riskLevel === "safe" ? [] : safety.reasons.slice(0, 4),
+    blockReasons: [],
   });
   if (!updated) throw new Error("preflight-not-found");
   return updated;

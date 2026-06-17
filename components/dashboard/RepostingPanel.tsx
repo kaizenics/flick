@@ -48,7 +48,6 @@ import {
   Square,
   Download,
   RefreshCcw,
-  ShieldAlert,
   Sparkles,
   Brain,
 } from "lucide-react";
@@ -239,13 +238,6 @@ function canonicalYoutubeUrl(input: string): string {
     // keep as-is
   }
   return trimmed;
-}
-
-function preflightStatusTone(status: PreflightApprovalStatus): string {
-  if (status === "approved") return "text-green-600";
-  if (status === "overridden") return "text-amber-600";
-  if (status === "blocked") return "text-red-600";
-  return "text-muted-foreground";
 }
 
 const blankRow = (offset = 20): QueueItem => ({
@@ -628,7 +620,6 @@ export function RepostingPanel() {
   const approvePreflight = async (args: {
     url: string;
     variantId: string;
-    overrideReason?: string;
   }) => {
     if (!activeId || !activeAccount || activeAccount.flow !== "yt-to-fb") return;
     setApprovingPreflight(args.url);
@@ -740,7 +731,7 @@ export function RepostingPanel() {
           missing.push(key);
           return item;
         }
-        if (!pf.selectedVariantId || !["approved", "overridden"].includes(pf.approvalStatus)) {
+        if (!pf.selectedVariantId) {
           blocked.push(key);
           return item;
         }
@@ -757,9 +748,7 @@ export function RepostingPanel() {
         return;
       }
       if (blocked.length > 0) {
-        toast.error(
-          "Some URLs are not approved. Approve safe captions or provide override reasons for blocked ones.",
-        );
+        toast.error("Choose a caption for each URL before scheduling.");
         return;
       }
       valid = nextValid;
@@ -1329,7 +1318,7 @@ export function RepostingPanel() {
                     AI Copilot
                   </CardTitle>
                   <CardDescription>
-                    Preflight captions with 3 variants, safety screening, and explicit approval before scheduling.
+                    Preflight captions with 3 variants, then pick the one you want before scheduling.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -1377,21 +1366,10 @@ export function RepostingPanel() {
                                 <div className="truncate font-medium">{pf.title || url}</div>
                                 <div className="truncate text-xs text-muted-foreground">{url}</div>
                               </div>
-                              <div className={`text-xs font-medium ${preflightStatusTone(pf.approvalStatus)}`}>
-                                {pf.approvalStatus.toUpperCase()}
-                              </div>
                             </div>
-
-                            {pf.blockReasons.length > 0 && (
-                              <div className="mt-2 flex items-start gap-1 text-xs text-red-600">
-                                <ShieldAlert className="mt-0.5 size-3.5" />
-                                <span>{pf.blockReasons.join(" • ")}</span>
-                              </div>
-                            )}
 
                             <div className="mt-2 space-y-2">
                               {pf.variants.map((variant) => {
-                                const safety = pf.safetyByVariant[variant.id];
                                 const selected = pf.selectedVariantId === variant.id;
                                 return (
                                   <div
@@ -1403,9 +1381,6 @@ export function RepostingPanel() {
                                     <div className="flex flex-wrap items-center justify-between gap-2">
                                       <div className="text-xs font-medium">
                                         {variant.hookType || "general"}
-                                      </div>
-                                      <div className="text-[11px] text-muted-foreground">
-                                        risk: {safety?.riskLevel ?? "review"}
                                       </div>
                                     </div>
                                     <div className="mt-1 text-xs">{variant.text}</div>
@@ -1421,30 +1396,8 @@ export function RepostingPanel() {
                                           })
                                         }
                                       >
-                                        {selected ? "Selected" : "Use + approve"}
+                                        {selected ? "Selected" : "Use caption"}
                                       </Button>
-                                      {(safety?.riskLevel === "review" ||
-                                        safety?.riskLevel === "block") && (
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          disabled={running || approvingPreflight === url}
-                                          onClick={() => {
-                                            const reason = window.prompt(
-                                              "Override reason (required):",
-                                              "Relevant to niche and acceptable for our page policy",
-                                            );
-                                            if (!reason?.trim()) return;
-                                            void approvePreflight({
-                                              url,
-                                              variantId: variant.id,
-                                              overrideReason: reason,
-                                            });
-                                          }}
-                                        >
-                                          Override with reason
-                                        </Button>
-                                      )}
                                     </div>
                                   </div>
                                 );
@@ -1551,7 +1504,7 @@ export function RepostingPanel() {
                 </CardTitle>
                 <CardDescription>
                   {activeAccount.flow === "yt-to-fb"
-                    ? "One YouTube Shorts URL per row. AI preflight approval is required before scheduling."
+                    ? "One YouTube Shorts URL per row. Run AI preflight, then choose the caption you want."
                     : activeAccount.flow === "tt-to-fb"
                       ? "One TikTok URL per row. Caption is optional — leave blank to auto-generate with AI."
                       : "One Instagram Reel URL per row (public reels only)."}{" "}
