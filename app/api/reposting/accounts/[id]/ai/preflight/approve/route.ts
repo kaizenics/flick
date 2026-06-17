@@ -6,7 +6,6 @@ export const runtime = "nodejs";
 type Body = {
   url?: string;
   variantId?: string;
-  overrideReason?: string;
 };
 
 export async function POST(
@@ -32,7 +31,6 @@ export async function POST(
       accountId: id,
       url,
       variantId,
-      overrideReason: body.overrideReason?.trim(),
     });
     return Response.json({ item });
   } catch (e) {
@@ -40,7 +38,7 @@ export async function POST(
     if (message === "preflight-not-found") {
       return Response.json({ error: message }, { status: 404 });
     }
-    if (message === "variant-not-found" || message === "override-reason-required") {
+    if (message === "variant-not-found") {
       return Response.json({ error: message }, { status: 400 });
     }
     return Response.json({ error: message }, { status: 500 });
