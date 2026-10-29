@@ -21,6 +21,8 @@ const ACCOUNTS_DIR = path.join(process.cwd(), "data", "accounts");
 export const DEFAULT_ACCOUNT_ID = "default";
 
 export function accountDir(id: string) {
+  // Ids reach here from query strings; refuse anything that could leave ACCOUNTS_DIR.
+  if (!/^[A-Za-z0-9_-]+$/.test(id)) throw new Error(`Invalid account id: ${id}`);
   return path.join(ACCOUNTS_DIR, id);
 }
 export function storageStatePath(id: string) {
@@ -96,7 +98,9 @@ export async function addAccount(name: string): Promise<Account> {
 
 export async function deleteAccount(id: string): Promise<void> {
   if (id === DEFAULT_ACCOUNT_ID) throw new Error("Cannot delete default account");
-  const accounts = (await listAccounts()).filter((a) => a.id !== id);
+  const all = await listAccounts();
+  if (!all.some((a) => a.id === id)) throw new Error("Unknown account");
+  const accounts = all.filter((a) => a.id !== id);
   await fs.writeFile(INDEX_PATH, JSON.stringify(accounts, null, 2));
   await fs.rm(accountDir(id), { recursive: true, force: true }).catch(() => {});
 }
