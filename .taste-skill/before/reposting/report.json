@@ -1,0 +1,1542 @@
+{
+ "url": "http://localhost:3010/reposting",
+ "at": "2026-10-29T05:04:44.130Z",
+ "allow": [],
+ "viewports": [
+  {
+   "width": 1440,
+   "height": 900,
+   "load": "load",
+   "screens": 2,
+   "filled": [
+    0.92,
+    0.7
+   ],
+   "motion": {
+    "elements": 2,
+    "css": 0,
+    "transitions": 1,
+    "scripted": 1,
+    "videos": 0,
+    "playingVideos": 0
+   },
+   "metrics": {
+    "viewport": {
+     "w": 1440,
+     "h": 900
+    },
+    "page": {
+     "height": 1469,
+     "screens": 1.6,
+     "words": 203,
+     "img": 0,
+     "video": 0,
+     "canvas": 0,
+     "svg": 37,
+     "sections": 1,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 0,
+     "uiAbuse": false,
+     "realPictures": 0,
+     "videoCount": 0,
+     "uiPictures": 0,
+     "pictureSamples": [],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": [],
+     "videosNoPoster": 0
+    },
+    "hero": {
+     "text": "Reposting",
+     "words": 1,
+     "chars": 9,
+     "lines": 1,
+     "size": 14,
+     "vw": 1,
+     "font": "Geist",
+     "weight": 500,
+     "tracking": 0,
+     "leading": 1.43,
+     "top": 18,
+     "tag": "h1",
+     "kind": "heading",
+     "align": "left",
+     "position": "left"
+    },
+    "h1": {
+     "text": "Reposting",
+     "words": 1,
+     "lines": 1,
+     "size": 14,
+     "font": "Geist"
+    },
+    "headings": [],
+    "headingSummary": {
+     "count": 0,
+     "maxLines": 0,
+     "over2Lines": 0,
+     "statements": 0,
+     "centered": 0,
+     "medianWords": null,
+     "mixedFontHeadings": 0
+    },
+    "type": {
+     "families": [
+      {
+       "family": "Geist",
+       "share": 0.98,
+       "mono": false
+      },
+      {
+       "family": "Geist Mono",
+       "share": 0.02,
+       "mono": true
+      }
+     ],
+     "familyCount": 2,
+     "sizes": [
+      10,
+      12,
+      13,
+      14,
+      16
+     ],
+     "sizeCount": 5,
+     "notLoaded": [],
+     "body": {
+      "font": "Geist",
+      "size": 14,
+      "leading": 1.43,
+      "weight": 400,
+      "tracking": 0,
+      "contrast": 6.9
+     },
+     "measureChars": 158,
+     "max": {
+      "size": 16,
+      "vw": 1.1,
+      "font": "Geist",
+      "text": "Lifty"
+     },
+     "monoShare": 0.02,
+     "monoProseShare": 0,
+     "monoFamilies": [
+      "Geist Mono"
+     ],
+     "monoSamples": [],
+     "microLabels": 0,
+     "microLabelShare": 0,
+     "microSamples": [],
+     "upperShare": 0,
+     "centerShare": 0.19,
+     "smallText": 17
+    },
+    "eyebrows": [],
+    "numbered": [],
+    "color": {
+     "bodyBg": "#0a0a0a",
+     "bodyBgHsl": {
+      "h": 0,
+      "s": 0,
+      "l": 0.04
+     },
+     "dark": true,
+     "sectionBgs": [
+      {
+       "color": "#0a0a0a",
+       "top": 0,
+       "hsl": {
+        "h": 0,
+        "s": 0,
+        "l": 0.04
+       }
+      }
+     ],
+     "textColors": [
+      {
+       "color": "#a1a1a1",
+       "share": 0.57
+      },
+      {
+       "color": "#fafafa",
+       "share": 0.35
+      },
+      {
+       "color": "#171717",
+       "share": 0.07
+      },
+      {
+       "color": "#f9f9f9",
+       "share": 0.01
+      }
+     ],
+     "button": {
+      "bg": "#e5e5e5",
+      "hsl": {
+       "h": 0,
+       "s": 0,
+       "l": 0.9
+      },
+      "fg": "#171717"
+     },
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 12,
+     "inHero": 9,
+     "radius": 8,
+     "height": 28,
+     "withShadow": 0,
+     "withGradient": 0,
+     "mono": 0,
+     "upper": 0,
+     "heroLabels": [
+      "Reposting",
+      "Switch account",
+      "Add Account",
+      "Save shared settings",
+      "Save account settings"
+     ]
+    },
+    "surfaces": {
+     "shadowStatic": 8,
+     "shadowOverlay": 0,
+     "shadowSamples": [
+      "div.group/card.flex → rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0",
+      "div.group/card.flex → rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0",
+      "div.group/card.flex → rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0",
+      "div.group/card.flex → rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0"
+     ],
+     "gradients": 0,
+     "scrims": 0,
+     "gradientSamples": [],
+     "gradientText": 0,
+     "hairlines": 2,
+     "hairlineSamples": [
+      "div.fixed.inset-y-0 256px",
+      "header.flex.h-14 1184px"
+     ],
+     "outlinedBoxes": 0,
+     "dashed": 0,
+     "blurred": 0,
+     "roundedBoxes": 7,
+     "boxRadius": 14,
+     "squareMedia": 0,
+     "roundedMedia": 0,
+     "mediaRadius": 0,
+     "textShadow": 0,
+     "cardRows": [
+      {
+       "count": 7,
+       "iconTopped": false,
+       "rounded": true,
+       "top": 80
+      }
+     ]
+    },
+    "heroMedia": [],
+    "nav": {
+     "links": 0,
+     "fixed": false,
+     "height": 56,
+     "floatingPill": false,
+     "blur": false
+    },
+    "fontsLoaded": [
+     "geist",
+     "geist mono"
+    ]
+   },
+   "layout": {
+    "viewport": {
+     "w": 1440,
+     "h": 900
+    },
+    "pageH": 1469,
+    "margins": {
+     "left": 296,
+     "right": 27
+    },
+    "sections": [
+     {
+      "sel": "div.group/card.flex",
+      "tag": "div",
+      "top": 80,
+      "height": 209,
+      "words": 27,
+      "media": 0,
+      "middle": 12,
+      "heading": null,
+      "left": 296,
+      "right": 40,
+      "textLeft": 296,
+      "textRight": 273,
+      "fullBleed": false,
+      "footer": false,
+      "hero": true,
+      "continues": false,
+      "pinned": false
+     },
+     {
+      "sel": "div.group/card.flex",
+      "tag": "div",
+      "top": 313,
+      "height": 209,
+      "words": 30,
+      "media": 0,
+      "middle": 12,
+      "heading": null,
+      "left": 296,
+      "right": 40,
+      "textLeft": 296,
+      "textRight": 476,
+      "fullBleed": false,
+      "footer": false,
+      "hero": true,
+      "continues": false,
+      "pinned": false
+     },
+     {
+      "sel": "div.group/card.flex",
+      "tag": "div",
+      "top": 546,
+      "height": 160,
+      "words": 29,
+      "media": 0,
+      "middle": 0,
+      "heading": null,
+      "left": 296,
+      "right": 633,
+      "textLeft": 296,
+      "textRight": 633,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": false,
+      "pinned": false
+     },
+     {
+      "sel": "div.group/card.flex",
+      "tag": "div",
+      "top": 730,
+      "height": 156,
+      "words": 29,
+      "media": 0,
+      "middle": 0,
+      "heading": null,
+      "left": 296,
+      "right": 638,
+      "textLeft": 296,
+      "textRight": 638,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": false,
+      "pinned": false
+     },
+     {
+      "sel": "div.group/card.flex",
+      "tag": "div",
+      "top": 910,
+      "height": 279,
+      "words": 47,
+      "media": 0,
+      "middle": 29,
+      "heading": null,
+      "left": 296,
+      "right": 44,
+      "textLeft": 296,
+      "textRight": 124,
+      "fullBleed": false,
+      "footer": true,
+      "hero": false,
+      "continues": false,
+      "pinned": false
+     }
+    ],
+    "gaps": [],
+    "h1s": [
+     {
+      "text": "Reposting",
+      "size": 14,
+      "top": 18,
+      "firstScreen": true
+     }
+    ],
+    "edgeText": [],
+    "edges": [
+     {
+      "x": 328,
+      "n": 1
+     }
+    ],
+    "leftBlocks": 1,
+    "bodySize": 14,
+    "stage": false,
+    "explains": false,
+    "slivers": [],
+    "voidShare": 0.19,
+    "voidBox": {
+     "x": 840,
+     "y": 480,
+     "w": 600,
+     "h": 420
+    }
+   },
+   "app": {
+    "viewport": {
+     "w": 1440,
+     "h": 900
+    },
+    "dark": true,
+    "ground": "#0a0a0a",
+    "sidebar": {
+     "w": 256,
+     "tag": "div",
+     "links": 12,
+     "share": 0.18
+    },
+    "topbar": {
+     "h": 56
+    },
+    "canvas": {
+     "left": 26,
+     "right": 40
+    },
+    "hero": {
+     "text": "Reposting",
+     "words": 1,
+     "chars": 9,
+     "lines": 1,
+     "size": 14,
+     "vw": 1,
+     "font": "Geist",
+     "weight": 500,
+     "tracking": 0,
+     "leading": 1.43,
+     "top": 18,
+     "tag": "h1",
+     "kind": "heading",
+     "align": "left",
+     "position": "left"
+    },
+    "charts": 0,
+    "layout": {
+     "panels": 8,
+     "firstScreen": 5,
+     "ragged": [],
+     "voids": []
+    },
+    "tiles": 0,
+    "panels": {
+     "count": 8,
+     "radii": [
+      [
+       14,
+       7
+      ],
+      [
+       0,
+       1
+      ]
+     ],
+     "heavyBorders": 0,
+     "borderSamples": [],
+     "heavyShadows": 7,
+     "softShadows": 0,
+     "shadowSamples": [
+      "oklab(0.984998 -0.00000956654 0.0000230074 / 0.1) 0px 0px 0px 1px",
+      "oklab(0.984998 -0.00000956654 0.0000230074 / 0.1) 0px 0px 0px 1px",
+      "oklab(0.984998 -0.00000956654 0.0000230074 / 0.1) 0px 0px 0px 1px"
+     ],
+     "glass": 0
+    },
+    "chips": {
+     "count": 0,
+     "hues": 0,
+     "samples": []
+    },
+    "numbers": {
+     "cells": 0,
+     "leftAligned": 0,
+     "figures": 1,
+     "tabularShare": 0,
+     "kpiMax": 10
+    },
+    "rows": null,
+    "chartHues": 0,
+    "placeholders": [],
+    "type": {
+     "under13": 0.21,
+     "tiny": 3,
+     "tinySamples": [
+      "+12h 10px",
+      "+1d 10px",
+      "+2d 10px"
+     ],
+     "sizes": [
+      10,
+      12,
+      13,
+      14,
+      16
+     ]
+    },
+    "title": {
+     "text": "Reposting",
+     "size": 14,
+     "top": 18
+    },
+    "colourShare": 0.001
+   },
+   "consoleErrors": []
+  },
+  {
+   "width": 768,
+   "height": 1024,
+   "load": "load",
+   "screens": 2,
+   "filled": [
+    0.89,
+    0.82
+   ],
+   "motion": {
+    "elements": 2,
+    "css": 0,
+    "transitions": 1,
+    "scripted": 1,
+    "videos": 0,
+    "playingVideos": 0
+   },
+   "metrics": {
+    "viewport": {
+     "w": 768,
+     "h": 1024
+    },
+    "page": {
+     "height": 1617,
+     "screens": 1.6,
+     "words": 203,
+     "img": 0,
+     "video": 0,
+     "canvas": 0,
+     "svg": 37,
+     "sections": 1,
+     "horizontalOverflow": 31,
+     "overflowCulprits": [
+      "div.ml-auto.flex (+15px)",
+      "div.group/card-header.@container/card-header (+7px)",
+      "div.px-4.group-data-[size=sm]/card:px-3 (+7px)"
+     ],
+     "uiFragments": 0,
+     "uiAbuse": false,
+     "realPictures": 0,
+     "videoCount": 0,
+     "uiPictures": 0,
+     "pictureSamples": [],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": [],
+     "videosNoPoster": 0
+    },
+    "hero": {
+     "text": "Reposting",
+     "words": 1,
+     "chars": 9,
+     "lines": 1,
+     "size": 14,
+     "vw": 1.8,
+     "font": "Geist",
+     "weight": 500,
+     "tracking": 0,
+     "leading": 1.43,
+     "top": 18,
+     "tag": "h1",
+     "kind": "heading",
+     "align": "left",
+     "position": "left"
+    },
+    "h1": {
+     "text": "Reposting",
+     "words": 1,
+     "lines": 1,
+     "size": 14,
+     "font": "Geist"
+    },
+    "headings": [],
+    "headingSummary": {
+     "count": 0,
+     "maxLines": 0,
+     "over2Lines": 0,
+     "statements": 0,
+     "centered": 0,
+     "medianWords": null,
+     "mixedFontHeadings": 0
+    },
+    "type": {
+     "families": [
+      {
+       "family": "Geist",
+       "share": 0.98,
+       "mono": false
+      },
+      {
+       "family": "Geist Mono",
+       "share": 0.02,
+       "mono": true
+      }
+     ],
+     "familyCount": 2,
+     "sizes": [
+      10,
+      12,
+      13,
+      14,
+      16
+     ],
+     "sizeCount": 5,
+     "notLoaded": [],
+     "body": {
+      "font": "Geist",
+      "size": 14,
+      "leading": 1.43,
+      "weight": 400,
+      "tracking": 0,
+      "contrast": 6.9
+     },
+     "measureChars": 66,
+     "max": {
+      "size": 16,
+      "vw": 2.1,
+      "font": "Geist",
+      "text": "Lifty"
+     },
+     "monoShare": 0.02,
+     "monoProseShare": 0,
+     "monoFamilies": [
+      "Geist Mono"
+     ],
+     "monoSamples": [],
+     "microLabels": 0,
+     "microLabelShare": 0,
+     "microSamples": [],
+     "upperShare": 0,
+     "centerShare": 0.19,
+     "smallText": 17
+    },
+    "eyebrows": [],
+    "numbered": [],
+    "color": {
+     "bodyBg": "#0a0a0a",
+     "bodyBgHsl": {
+      "h": 0,
+      "s": 0,
+      "l": 0.04
+     },
+     "dark": true,
+     "sectionBgs": [
+      {
+       "color": "#171717",
+       "top": 0,
+       "hsl": {
+        "h": 0,
+        "s": 0,
+        "l": 0.09
+       }
+      },
+      {
+       "color": "#0a0a0a",
+       "top": 0,
+       "hsl": {
+        "h": 0,
+        "s": 0,
+        "l": 0.04
+       }
+      }
+     ],
+     "textColors": [
+      {
+       "color": "#a1a1a1",
+       "share": 0.57
+      },
+      {
+       "color": "#fafafa",
+       "share": 0.35
+      },
+      {
+       "color": "#171717",
+       "share": 0.07
+      },
+      {
+       "color": "#f9f9f9",
+       "share": 0.01
+      }
+     ],
+     "button": {
+      "bg": "#e5e5e5",
+      "hsl": {
+       "h": 0,
+       "s": 0,
+       "l": 0.9
+      },
+      "fg": "#171717"
+     },
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 12,
+     "inHero": 9,
+     "radius": 8,
+     "height": 28,
+     "withShadow": 0,
+     "withGradient": 0,
+     "mono": 0,
+     "upper": 0,
+     "heroLabels": [
+      "Reposting",
+      "Switch account",
+      "Add Account",
+      "Save shared settings",
+      "Save account settings"
+     ]
+    },
+    "surfaces": {
+     "shadowStatic": 8,
+     "shadowOverlay": 0,
+     "shadowSamples": [
+      "div.group/card.flex → rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0",
+      "div.group/card.flex → rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0",
+      "div.group/card.flex → rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0",
+      "div.group/card.flex → rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0"
+     ],
+     "gradients": 0,
+     "scrims": 0,
+     "gradientSamples": [],
+     "gradientText": 0,
+     "hairlines": 2,
+     "hairlineSamples": [
+      "div.fixed.inset-y-0 256px",
+      "header.flex.h-14 543px"
+     ],
+     "outlinedBoxes": 0,
+     "dashed": 0,
+     "blurred": 0,
+     "roundedBoxes": 7,
+     "boxRadius": 14,
+     "squareMedia": 0,
+     "roundedMedia": 0,
+     "mediaRadius": 0,
+     "textShadow": 0,
+     "cardRows": [
+      {
+       "count": 7,
+       "iconTopped": false,
+       "rounded": true,
+       "top": 80
+      }
+     ]
+    },
+    "heroMedia": [],
+    "nav": {
+     "links": 0,
+     "fixed": false,
+     "height": 56,
+     "floatingPill": false,
+     "blur": false
+    },
+    "fontsLoaded": [
+     "geist",
+     "geist mono"
+    ]
+   },
+   "layout": {
+    "viewport": {
+     "w": 768,
+     "h": 1024
+    },
+    "pageH": 1617,
+    "margins": {
+     "left": 296,
+     "right": 9
+    },
+    "sections": [
+     {
+      "sel": "div.group/card.flex",
+      "tag": "div",
+      "top": 80,
+      "height": 229,
+      "words": 27,
+      "media": 0,
+      "middle": 12,
+      "heading": null,
+      "left": 296,
+      "right": 9,
+      "textLeft": 296,
+      "textRight": 29,
+      "fullBleed": false,
+      "footer": false,
+      "hero": true,
+      "continues": false,
+      "pinned": false
+     },
+     {
+      "sel": "div.group/card.flex",
+      "tag": "div",
+      "top": 333,
+      "height": 209,
+      "words": 30,
+      "media": 0,
+      "middle": 0,
+      "heading": null,
+      "left": 296,
+      "right": 9,
+      "textLeft": 296,
+      "textRight": 124,
+      "fullBleed": false,
+      "footer": false,
+      "hero": true,
+      "continues": false,
+      "pinned": false
+     },
+     {
+      "sel": "div.group/card.flex",
+      "tag": "div",
+      "top": 566,
+      "height": 180,
+      "words": 29,
+      "media": 0,
+      "middle": 0,
+      "heading": null,
+      "left": 296,
+      "right": 37,
+      "textLeft": 296,
+      "textRight": 37,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": false,
+      "pinned": false
+     },
+     {
+      "sel": "div.group/card.flex",
+      "tag": "div",
+      "top": 770,
+      "height": 176,
+      "words": 29,
+      "media": 0,
+      "middle": 0,
+      "heading": null,
+      "left": 296,
+      "right": 34,
+      "textLeft": 296,
+      "textRight": 34,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": false,
+      "pinned": false
+     },
+     {
+      "sel": "div.group/card.flex",
+      "tag": "div",
+      "top": 970,
+      "height": 367,
+      "words": 47,
+      "media": 0,
+      "middle": 0,
+      "heading": null,
+      "left": 296,
+      "right": 13,
+      "textLeft": 296,
+      "textRight": 22,
+      "fullBleed": false,
+      "footer": true,
+      "hero": false,
+      "continues": false,
+      "pinned": false
+     }
+    ],
+    "gaps": [],
+    "h1s": [
+     {
+      "text": "Reposting",
+      "size": 14,
+      "top": 18,
+      "firstScreen": true
+     }
+    ],
+    "edgeText": [],
+    "edges": [
+     {
+      "x": 328,
+      "n": 1
+     }
+    ],
+    "leftBlocks": 1,
+    "bodySize": 14,
+    "stage": false,
+    "explains": false,
+    "slivers": [],
+    "voidShare": 0,
+    "voidBox": null
+   },
+   "app": {
+    "viewport": {
+     "w": 768,
+     "h": 1024
+    },
+    "dark": true,
+    "ground": "#0a0a0a",
+    "sidebar": {
+     "w": 256,
+     "tag": "div",
+     "links": 12,
+     "share": 0.33
+    },
+    "topbar": {
+     "h": 56
+    },
+    "canvas": {
+     "left": 26,
+     "right": 13
+    },
+    "hero": {
+     "text": "Reposting",
+     "words": 1,
+     "chars": 9,
+     "lines": 1,
+     "size": 14,
+     "vw": 1.8,
+     "font": "Geist",
+     "weight": 500,
+     "tracking": 0,
+     "leading": 1.43,
+     "top": 18,
+     "tag": "h1",
+     "kind": "heading",
+     "align": "left",
+     "position": "left"
+    },
+    "charts": 0,
+    "layout": {
+     "panels": 8,
+     "firstScreen": 6,
+     "ragged": [],
+     "voids": []
+    },
+    "tiles": 0,
+    "panels": {
+     "count": 8,
+     "radii": [
+      [
+       14,
+       7
+      ],
+      [
+       0,
+       1
+      ]
+     ],
+     "heavyBorders": 0,
+     "borderSamples": [],
+     "heavyShadows": 7,
+     "softShadows": 0,
+     "shadowSamples": [
+      "oklab(0.984998 -0.00000956654 0.0000230074 / 0.1) 0px 0px 0px 1px",
+      "oklab(0.984998 -0.00000956654 0.0000230074 / 0.1) 0px 0px 0px 1px",
+      "oklab(0.984998 -0.00000956654 0.0000230074 / 0.1) 0px 0px 0px 1px"
+     ],
+     "glass": 0
+    },
+    "chips": {
+     "count": 0,
+     "hues": 0,
+     "samples": []
+    },
+    "numbers": {
+     "cells": 0,
+     "leftAligned": 0,
+     "figures": 1,
+     "tabularShare": 0,
+     "kpiMax": 10
+    },
+    "rows": null,
+    "chartHues": 0,
+    "placeholders": [],
+    "type": {
+     "under13": 0.21,
+     "tiny": 3,
+     "tinySamples": [
+      "+12h 10px",
+      "+1d 10px",
+      "+2d 10px"
+     ],
+     "sizes": [
+      10,
+      12,
+      13,
+      14,
+      16
+     ]
+    },
+    "title": {
+     "text": "Reposting",
+     "size": 14,
+     "top": 18
+    },
+    "colourShare": 0.002
+   },
+   "consoleErrors": []
+  },
+  {
+   "width": 390,
+   "height": 844,
+   "load": "load",
+   "screens": 3,
+   "filled": [
+    0.77,
+    0.77,
+    0.79
+   ],
+   "motion": {
+    "elements": 2,
+    "css": 0,
+    "transitions": 1,
+    "scripted": 1,
+    "videos": 0,
+    "playingVideos": 0
+   },
+   "metrics": {
+    "viewport": {
+     "w": 390,
+     "h": 844
+    },
+    "page": {
+     "height": 2040,
+     "screens": 2.4,
+     "words": 182,
+     "img": 0,
+     "video": 0,
+     "canvas": 0,
+     "svg": 27,
+     "sections": 1,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 0,
+     "uiAbuse": false,
+     "realPictures": 0,
+     "videoCount": 0,
+     "uiPictures": 0,
+     "pictureSamples": [],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": [],
+     "videosNoPoster": 0
+    },
+    "hero": {
+     "text": "Reposting",
+     "words": 1,
+     "chars": 9,
+     "lines": 1,
+     "size": 14,
+     "vw": 3.6,
+     "font": "Geist",
+     "weight": 500,
+     "tracking": 0,
+     "leading": 1.43,
+     "top": 18,
+     "tag": "h1",
+     "kind": "heading",
+     "align": "left",
+     "position": "left"
+    },
+    "h1": {
+     "text": "Reposting",
+     "words": 1,
+     "lines": 1,
+     "size": 14,
+     "font": "Geist"
+    },
+    "headings": [],
+    "headingSummary": {
+     "count": 0,
+     "maxLines": 0,
+     "over2Lines": 0,
+     "statements": 0,
+     "centered": 0,
+     "medianWords": null,
+     "mixedFontHeadings": 0
+    },
+    "type": {
+     "families": [
+      {
+       "family": "Geist",
+       "share": 0.98,
+       "mono": false
+      },
+      {
+       "family": "Geist Mono",
+       "share": 0.02,
+       "mono": true
+      }
+     ],
+     "familyCount": 2,
+     "sizes": [
+      10,
+      12,
+      13,
+      14,
+      16
+     ],
+     "sizeCount": 5,
+     "notLoaded": [],
+     "body": {
+      "font": "Geist",
+      "size": 14,
+      "leading": 1.43,
+      "weight": 400,
+      "tracking": 0,
+      "contrast": 6.9
+     },
+     "measureChars": 44,
+     "max": {
+      "size": 16,
+      "vw": 4.1,
+      "font": "Geist",
+      "text": "Shared settings"
+     },
+     "monoShare": 0.02,
+     "monoProseShare": 0,
+     "monoFamilies": [
+      "Geist Mono"
+     ],
+     "monoSamples": [],
+     "microLabels": 0,
+     "microLabelShare": 0,
+     "microSamples": [],
+     "upperShare": 0,
+     "centerShare": 0.21,
+     "smallText": 15
+    },
+    "eyebrows": [],
+    "numbered": [],
+    "color": {
+     "bodyBg": "#0a0a0a",
+     "bodyBgHsl": {
+      "h": 0,
+      "s": 0,
+      "l": 0.04
+     },
+     "dark": true,
+     "sectionBgs": [
+      {
+       "color": "#0a0a0a",
+       "top": 0,
+       "hsl": {
+        "h": 0,
+        "s": 0,
+        "l": 0.04
+       }
+      },
+      {
+       "color": "#171717",
+       "top": 80,
+       "hsl": {
+        "h": 0,
+        "s": 0,
+        "l": 0.09
+       }
+      }
+     ],
+     "textColors": [
+      {
+       "color": "#a1a1a1",
+       "share": 0.61
+      },
+      {
+       "color": "#fafafa",
+       "share": 0.31
+      },
+      {
+       "color": "#171717",
+       "share": 0.08
+      }
+     ],
+     "button": {
+      "bg": "#e5e5e5",
+      "hsl": {
+       "h": 0,
+       "s": 0,
+       "l": 0.9
+      },
+      "fg": "#171717"
+     },
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 11,
+     "inHero": 4,
+     "radius": 8,
+     "height": 28,
+     "withShadow": 0,
+     "withGradient": 0,
+     "mono": 0,
+     "upper": 0,
+     "heroLabels": [
+      "Switch account",
+      "Add Account",
+      "Save shared settings",
+      "Save account settings"
+     ]
+    },
+    "surfaces": {
+     "shadowStatic": 8,
+     "shadowOverlay": 0,
+     "shadowSamples": [
+      "div.group/card.flex → rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0",
+      "div.group/card.flex → rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0",
+      "div.group/card.flex → rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0",
+      "div.group/card.flex → rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0"
+     ],
+     "gradients": 0,
+     "scrims": 0,
+     "gradientSamples": [],
+     "gradientText": 0,
+     "hairlines": 1,
+     "hairlineSamples": [
+      "header.flex.h-14 390px"
+     ],
+     "outlinedBoxes": 0,
+     "dashed": 0,
+     "blurred": 0,
+     "roundedBoxes": 7,
+     "boxRadius": 14,
+     "squareMedia": 0,
+     "roundedMedia": 0,
+     "mediaRadius": 0,
+     "textShadow": 0,
+     "cardRows": [
+      {
+       "count": 7,
+       "iconTopped": false,
+       "rounded": true,
+       "top": 80
+      }
+     ]
+    },
+    "heroMedia": [],
+    "nav": {
+     "links": 0,
+     "fixed": false,
+     "height": 56,
+     "floatingPill": false,
+     "blur": false
+    },
+    "fontsLoaded": [
+     "geist",
+     "geist mono"
+    ]
+   },
+   "layout": {
+    "viewport": {
+     "w": 390,
+     "h": 844
+    },
+    "pageH": 2040,
+    "margins": {
+     "left": 40,
+     "right": 40
+    },
+    "sections": [
+     {
+      "sel": "div.group/card.flex",
+      "tag": "div",
+      "top": 80,
+      "height": 391,
+      "words": 27,
+      "media": 0,
+      "middle": 0,
+      "heading": null,
+      "left": 40,
+      "right": 40,
+      "textLeft": 40,
+      "textRight": 76,
+      "fullBleed": false,
+      "footer": false,
+      "hero": true,
+      "continues": false,
+      "pinned": false
+     },
+     {
+      "sel": "div.group/card.flex",
+      "tag": "div",
+      "top": 495,
+      "height": 310,
+      "words": 30,
+      "media": 0,
+      "middle": 0,
+      "heading": null,
+      "left": 40,
+      "right": 40,
+      "textLeft": 40,
+      "textRight": 40,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": false,
+      "pinned": false
+     },
+     {
+      "sel": "div.group/card.flex",
+      "tag": "div",
+      "top": 829,
+      "height": 180,
+      "words": 29,
+      "media": 0,
+      "middle": 0,
+      "heading": null,
+      "left": 40,
+      "right": 49,
+      "textLeft": 40,
+      "textRight": 49,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": false,
+      "pinned": false
+     },
+     {
+      "sel": "div.group/card.flex",
+      "tag": "div",
+      "top": 1033,
+      "height": 176,
+      "words": 29,
+      "media": 0,
+      "middle": 0,
+      "heading": null,
+      "left": 40,
+      "right": 45,
+      "textLeft": 40,
+      "textRight": 53,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": false,
+      "pinned": false
+     },
+     {
+      "sel": "div.group/card.flex",
+      "tag": "div",
+      "top": 1233,
+      "height": 527,
+      "words": 47,
+      "media": 0,
+      "middle": 0,
+      "heading": null,
+      "left": 40,
+      "right": 0,
+      "textLeft": 40,
+      "textRight": 24,
+      "fullBleed": false,
+      "footer": true,
+      "hero": false,
+      "continues": false,
+      "pinned": false
+     }
+    ],
+    "gaps": [],
+    "h1s": [
+     {
+      "text": "Reposting",
+      "size": 14,
+      "top": 18,
+      "firstScreen": true
+     }
+    ],
+    "edgeText": [],
+    "edges": [
+     {
+      "x": 72,
+      "n": 1
+     }
+    ],
+    "leftBlocks": 1,
+    "bodySize": 14,
+    "stage": false,
+    "explains": false,
+    "slivers": [],
+    "voidShare": 0,
+    "voidBox": null
+   },
+   "app": {
+    "viewport": {
+     "w": 390,
+     "h": 844
+    },
+    "dark": true,
+    "ground": "#0a0a0a",
+    "sidebar": null,
+    "topbar": {
+     "h": 56
+    },
+    "canvas": {
+     "left": 26,
+     "right": 40
+    },
+    "hero": {
+     "text": "Reposting",
+     "words": 1,
+     "chars": 9,
+     "lines": 1,
+     "size": 14,
+     "vw": 3.6,
+     "font": "Geist",
+     "weight": 500,
+     "tracking": 0,
+     "leading": 1.43,
+     "top": 18,
+     "tag": "h1",
+     "kind": "heading",
+     "align": "left",
+     "position": "left"
+    },
+    "charts": 0,
+    "layout": {
+     "panels": 7,
+     "firstScreen": 2,
+     "ragged": [],
+     "voids": []
+    },
+    "tiles": 0,
+    "panels": {
+     "count": 7,
+     "radii": [
+      [
+       14,
+       7
+      ]
+     ],
+     "heavyBorders": 0,
+     "borderSamples": [],
+     "heavyShadows": 7,
+     "softShadows": 0,
+     "shadowSamples": [
+      "oklab(0.984998 -0.00000956654 0.0000230074 / 0.1) 0px 0px 0px 1px",
+      "oklab(0.984998 -0.00000956654 0.0000230074 / 0.1) 0px 0px 0px 1px",
+      "oklab(0.984998 -0.00000956654 0.0000230074 / 0.1) 0px 0px 0px 1px"
+     ],
+     "glass": 0
+    },
+    "chips": {
+     "count": 0,
+     "hues": 0,
+     "samples": []
+    },
+    "numbers": {
+     "cells": 0,
+     "leftAligned": 0,
+     "figures": 1,
+     "tabularShare": 0,
+     "kpiMax": 10
+    },
+    "rows": null,
+    "chartHues": 0,
+    "placeholders": [],
+    "type": {
+     "under13": 0.19,
+     "tiny": 3,
+     "tinySamples": [
+      "+12h 10px",
+      "+1d 10px",
+      "+2d 10px"
+     ],
+     "sizes": [
+      10,
+      12,
+      13,
+      14,
+      16
+     ]
+    },
+    "title": {
+     "text": "Reposting",
+     "size": 14,
+     "top": 18
+    },
+    "colourShare": 0.001
+   },
+   "consoleErrors": []
+  }
+ ],
+ "findings": [
+  {
+   "level": "FAIL",
+   "id": "font-not-dealt",
+   "width": 1440,
+   "message": "The sheet dealt Inter, but the page renders Geist, Geist Mono.",
+   "fix": "Load the dealt face (the link on the sheet) and put it first in font-family. A build that falls back to a default face lands on the default look."
+  },
+  {
+   "level": "FAIL",
+   "id": "heavy-shadow",
+   "width": 1440,
+   "message": "7 panel shadow(s) heavy enough to read as floating: oklab(0.984998 -0.00000956654 0.0000230074 / 0.1) 0px 0px 0px 1px | oklab(0.984998 -0.00000956654 0.0000230074 / 0.1) 0px 0px 0px 1px | oklab(0.984998 -0.00000956654 0.0000230074 / 0.1) 0px 0px 0px 1px",
+   "fix": "Panels sit on the ground: separate them with a fill one step from the ground or a quiet 1px border. A shadow, if any, is under 8% black with a small blur. Real overlays (menus, dialogs, popovers) may float.",
+   "alsoAt": [
+    768,
+    390
+   ]
+  },
+  {
+   "level": "FAIL",
+   "id": "tiny-text",
+   "width": 1440,
+   "message": "3 text blocks under 11px: +12h 10px, +1d 10px, +2d 10px.",
+   "fix": "Nothing below 11px; secondary text 12px, data 13–14px.",
+   "alsoAt": [
+    768,
+    390
+   ]
+  },
+  {
+   "level": "FAIL",
+   "id": "overflow",
+   "width": 768,
+   "message": "Page scrolls sideways by 31px at 768px. Widest offenders: div.ml-auto.flex (+15px), div.group/card-header.@container/card-header (+7px), div.px-4.group-data-[size=sm]/card:px-3 (+7px).",
+   "fix": "Constrain the element that is wider than the viewport (max-width: 100%, or overflow: clip on its section)."
+  }
+ ],
+ "images": [
+  {
+   "viewport": "desktop",
+   "width": 1440,
+   "fold": "/home/niko/Next-Apps/lifty/.taste-skill/before/reposting/desktop-fold.jpg",
+   "pages": [
+    "/home/niko/Next-Apps/lifty/.taste-skill/before/reposting/desktop-page-01.jpg"
+   ],
+   "film": []
+  },
+  {
+   "viewport": "tablet",
+   "width": 768,
+   "fold": "/home/niko/Next-Apps/lifty/.taste-skill/before/reposting/tablet-fold.jpg",
+   "pages": [
+    "/home/niko/Next-Apps/lifty/.taste-skill/before/reposting/tablet-page-01.jpg"
+   ],
+   "film": []
+  },
+  {
+   "viewport": "mobile",
+   "width": 390,
+   "fold": "/home/niko/Next-Apps/lifty/.taste-skill/before/reposting/mobile-fold.jpg",
+   "pages": [
+    "/home/niko/Next-Apps/lifty/.taste-skill/before/reposting/mobile-page-01.jpg"
+   ],
+   "film": []
+  }
+ ]
+}
