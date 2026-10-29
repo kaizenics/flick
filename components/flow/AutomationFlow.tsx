@@ -4,8 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ReactFlow,
   Background,
+  BackgroundVariant,
+  ConnectionLineType,
   Controls,
-  ControlButton,
   MiniMap,
   Handle,
   Position,
@@ -18,6 +19,7 @@ import {
   type Edge,
   type NodeProps,
   type Connection,
+  type XYPosition,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import {
@@ -27,14 +29,45 @@ import {
   Smile,
   Play,
   Square,
-  Eye,
-  EyeOff,
-  Zap,
-  ZapOff,
-  Share2,
   Check,
-  type LucideIcon,
+  X,
+  Loader2,
+  Plus,
+  Save,
+  Search,
+  Newspaper,
+  ChevronsUpDown,
+  ChevronDown,
+  Trash2,
+  Blocks,
+  SlidersHorizontal,
+  Workflow,
 } from "lucide-react";
+import { toast } from "sonner";
+import { AppTopbar } from "@/components/dashboard/app-topbar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { cn } from "@/lib/utils";
 
 function FacebookIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -61,35 +94,6 @@ function ThreadsIcon(props: React.SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Plus } from "lucide-react";
 
 type LogEntry = {
   ts: string;
@@ -123,105 +127,196 @@ type NodeKey =
 
 type ReactionKind = "like" | "love" | "haha" | "wow" | "sad" | "angry";
 
-const REACTION_OPTIONS: Array<{ id: ReactionKind; label: string; emoji: string }> = [
-  { id: "like", label: "Like", emoji: "👍" },
-  { id: "love", label: "Love", emoji: "❤️" },
-  { id: "haha", label: "Haha", emoji: "😆" },
-  { id: "wow", label: "Wow", emoji: "😮" },
-  { id: "sad", label: "Sad", emoji: "😢" },
-  { id: "angry", label: "Angry", emoji: "😡" },
+const REACTION_OPTIONS: Array<{ id: ReactionKind; label: string }> = [
+  { id: "like", label: "Like" },
+  { id: "love", label: "Love" },
+  { id: "haha", label: "Haha" },
+  { id: "wow", label: "Wow" },
+  { id: "sad", label: "Sad" },
+  { id: "angry", label: "Angry" },
 ];
 
 type Platform = "facebook" | "instagram" | "threads";
 
-/* ---------- icon node shell ---------- */
-
-function IconNode({
-  icon: Icon,
-  label,
-  active,
-  running,
-  iconClassName,
-  onOpen,
-  onDelete,
-  showLeft = true,
-  showRight = true,
-  renderIcon,
-  onAdd,
-}: {
-  icon?: LucideIcon;
+const PLATFORMS: Array<{
+  id: Platform;
   label: string;
-  active?: boolean;
-  running?: boolean;
-  iconClassName?: string;
-  onOpen: () => void;
-  onDelete?: () => void;
-  showLeft?: boolean;
-  showRight?: boolean;
-  renderIcon?: () => React.ReactNode;
+  icon: (p: React.SVGProps<SVGSVGElement>) => React.ReactElement;
+  soon?: boolean;
+}> = [
+  { id: "facebook", label: "Facebook", icon: FacebookIcon },
+  { id: "instagram", label: "Instagram", icon: InstagramIcon, soon: true },
+  { id: "threads", label: "Threads", icon: ThreadsIcon, soon: true },
+];
+
+/* ---------- node catalogue ---------- */
+
+type NodeMeta = {
+  label: string;
+  description: string;
+  group: "Trigger" | "Account" | "Targets" | "Actions";
+  icon: React.ComponentType<{ className?: string }>;
+  input: boolean;
+  output: boolean;
+  /** Pipeline depth, used to light nodes up as a run moves through them. */
+  rank: number;
+};
+
+const NODE_META: Record<NodeKey, NodeMeta> = {
+  social: { label: "Social media", description: "Pick the platform", group: "Trigger", icon: FacebookIcon, input: false, output: true, rank: 0 },
+  session: { label: "Session", description: "Login and saved cookies", group: "Account", icon: KeyRound, input: true, output: true, rank: 1 },
+  target: { label: "Target page", description: "Page that receives follows", group: "Targets", icon: TargetIcon, input: true, output: true, rank: 2 },
+  targetPost: { label: "Target post", description: "Post that receives reactions", group: "Targets", icon: Newspaper, input: true, output: true, rank: 2 },
+  action: { label: "Follow or like", description: "Tries Follow, falls back to Like", group: "Actions", icon: Heart, input: true, output: false, rank: 3 },
+  reactions: { label: "Reactions", description: "Drops a reaction on the post", group: "Actions", icon: Smile, input: true, output: false, rank: 3 },
+};
+
+const NODE_KEYS = Object.keys(NODE_META) as NodeKey[];
+const GROUPS: NodeMeta["group"][] = ["Trigger", "Account", "Targets", "Actions"];
+
+const NODE_DEFAULTS: Partial<Record<NodeKey, Record<string, unknown>>> = {
+  social: { platform: "facebook" },
+  target: { url: "" },
+  targetPost: { url: "" },
+  reactions: { reaction: "like" },
+};
+
+type RunStatus = "idle" | "running" | "done" | "error";
+
+// Derived from the live status poll + log stream: nodes upstream of the step
+// the runner is on are done, the current step runs, the rest wait.
+function runStatus(type: NodeKey, s: RunState | undefined): RunStatus {
+  if (!s) return "idle";
+  const rank = NODE_META[type].rank;
+  if (s.status?.running) {
+    const at = s.active ? NODE_META[s.active].rank : 2;
+    return rank < at ? "done" : rank === at ? "running" : "idle";
+  }
+  // shortcut: the log stream does not say which node failed, so an error at the
+  // end of the last run is pinned on the action nodes.
+  if (s.logs[s.logs.length - 1]?.level === "error" && rank === 3) return "error";
+  return "idle";
+}
+
+function shortUrl(u: string) {
+  try {
+    const url = new URL(u);
+    return `${url.host.replace(/^www\./, "")}${url.pathname.replace(/\/$/, "")}`;
+  } catch {
+    return u;
+  }
+}
+
+type NodeData = {
+  state?: RunState;
+  url?: string;
+  reaction?: ReactionKind;
+  platform?: Platform;
+  onDelete?: (id: string) => void;
   onAdd?: () => void;
-}) {
-  const greenBorder = active || running;
+};
+
+function nodeSummary(type: NodeKey, d: NodeData): string {
+  switch (type) {
+    case "social":
+      return PLATFORMS.find((p) => p.id === d.platform)?.label ?? "Facebook";
+    case "session":
+      return d.state?.status?.hasSession ? "Saved session" : "Not logged in";
+    case "target":
+    case "targetPost":
+      return d.url ? shortUrl(d.url) : "No URL set";
+    case "action":
+      return d.state?.lastResult ?? "Follow, else like";
+    case "reactions":
+      return REACTION_OPTIONS.find((r) => r.id === d.reaction)?.label ?? "Like";
+  }
+}
+
+function StatusMark({ status }: { status: RunStatus }) {
   return (
-    <div className="group relative flex w-28 flex-col items-center">
-      {showLeft && (
-        <Handle
-          type="target"
-          position={Position.Left}
-          className="!size-2.5 !border-2 !border-zinc-600 !bg-zinc-900"
-          style={{ top: "44px" }}
-        />
+    <span
+      className={cn(
+        "flex size-5 shrink-0 items-center justify-center rounded-full",
+        status === "done" && "bg-data text-black",
+        status === "error" && "bg-danger-tint text-danger-ink",
+        status === "running" && "text-white",
+        status === "idle" && "bg-raised",
       )}
-      <button
-        type="button"
-        onClick={onOpen}
-        className={`flex size-22 cursor-pointer items-center justify-center rounded-2xl border bg-card shadow-[0_2px_6px_rgba(0,0,0,0.4)] transition-all hover:shadow-[0_4px_12px_rgba(0,0,0,0.5)] ${greenBorder
-            ? `border-emerald-500 ${active ? "ring-2 ring-emerald-500/30" : ""}`
-            : "border-border"
-          }`}
-        style={{ width: 88, height: 88 }}
-        title={`${label} — click to configure`}
-      >
-        {renderIcon ? (
-          renderIcon()
-        ) : Icon ? (
-          <Icon className={`size-9 ${iconClassName ?? "text-zinc-700"}`} />
-        ) : null}
-      </button>
-      <span className="mt-2 max-w-[7rem] text-center text-[12px] font-medium leading-tight text-foreground">
-        {label}
-      </span>
-      {onDelete && (
+      aria-label={status}
+      title={status}
+    >
+      {status === "done" && <Check className="size-3" strokeWidth={3} />}
+      {status === "error" && <X className="size-3" strokeWidth={3} />}
+      {status === "running" && <Loader2 className="size-4 animate-spin" />}
+      {status === "idle" && <span className="size-1.5 rounded-full bg-faint" />}
+    </span>
+  );
+}
+
+/* ---------- node card ---------- */
+
+const handleClass =
+  "!size-3 !border-2 !border-faint !bg-black transition-colors hover:!border-white";
+
+function FlowNode({ id, type, data, selected }: NodeProps) {
+  const key = type as NodeKey;
+  const d = data as NodeData;
+  const meta = NODE_META[key];
+  const status = runStatus(key, d.state);
+  const Icon = meta.icon;
+  const cur = d.state?.current;
+  return (
+    <div
+      className={cn(
+        "group relative flex w-[184px] flex-col gap-3 rounded-2xl border bg-card p-3.5 transition-colors",
+        status === "running" && "border-white",
+        status === "done" && "border-data/60",
+        status === "error" && "border-danger-ink",
+        status === "idle" && (selected ? "border-faint" : "border-raised hover:border-faint/60"),
+        selected && "outline-2 outline-offset-4 outline-white/30",
+      )}
+    >
+      {meta.input && <Handle type="target" position={Position.Left} className={handleClass} />}
+      <div className="flex items-center justify-between">
+        <span className="flex size-8 items-center justify-center rounded-lg bg-black text-white">
+          <Icon className="size-4" />
+        </span>
+        <StatusMark status={status} />
+      </div>
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <span className="flex items-baseline justify-between gap-2 text-sm font-medium text-white">
+          <span className="truncate">{meta.label}</span>
+          {status === "running" && cur && (
+            <span className="num text-xs font-normal text-muted-foreground">
+              {cur.i}/{cur.n}
+            </span>
+          )}
+        </span>
+        <span className="truncate text-xs text-muted-foreground">{nodeSummary(key, d)}</span>
+      </div>
+      {d.onDelete && (
         <button
           type="button"
           onClick={(e) => {
             e.stopPropagation();
-            onDelete();
+            d.onDelete?.(id);
           }}
-          className="absolute -right-1 top-0 hidden size-5 items-center justify-center rounded-full border border-border bg-card text-xs text-muted-foreground shadow-sm hover:text-destructive group-hover:flex"
+          className="nodrag absolute -top-2.5 -right-2.5 flex size-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-danger-ink focus-visible:opacity-100"
           title="Delete node"
           aria-label="Delete node"
         >
-          ✕
+          <X className="size-3" />
         </button>
       )}
-      {showRight && (
-        <Handle
-          type="source"
-          position={Position.Right}
-          className="!size-2.5 !border-2 !border-zinc-600 !bg-zinc-900"
-          style={{ top: "44px" }}
-        />
-      )}
-      {showRight && onAdd && (
+      {meta.output && <Handle type="source" position={Position.Right} className={handleClass} />}
+      {meta.output && d.onAdd && (
         <button
           type="button"
           onClick={(e) => {
             e.stopPropagation();
-            onAdd();
+            d.onAdd?.();
           }}
-          className="absolute z-10 flex size-5 items-center justify-center rounded-full border border-zinc-600 bg-card text-muted-foreground opacity-0 transition-opacity hover:border-emerald-500 hover:text-emerald-500 group-hover:opacity-100"
-          style={{ left: "100%", top: "60%", transform: "translateX(-50%) translateY(-50%)" }}
+          className="nodrag absolute top-1/2 left-full ml-4 flex size-6 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:border-white hover:text-white focus-visible:opacity-100"
           title="Add next node"
           aria-label="Add next node"
         >
@@ -232,342 +327,14 @@ function IconNode({
   );
 }
 
-function NodeDialog({
-  open,
-  onOpenChange,
-  title,
-  description,
-  children,
-}: {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  title: string;
-  description?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          {description && <DialogDescription>{description}</DialogDescription>}
-        </DialogHeader>
-        <div className="flex flex-col gap-3 text-sm">{children}</div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-/* ---------- node bodies (icon + dialog) ---------- */
-
-function SocialMediaNode({ id, data }: NodeProps) {
-  const d = data as {
-    state: RunState;
-    platform: Platform;
-    onPlatformChange: (id: string, p: Platform) => void;
-    onDelete: (id: string) => void;
-    onAdd: () => void;
-  };
-  const [open, setOpen] = useState(false);
-  type PlatformDef = {
-    id: Platform;
-    label: string;
-    icon: (p: React.SVGProps<SVGSVGElement>) => React.ReactElement;
-    soon?: boolean;
-  };
-  const platforms: PlatformDef[] = [
-    { id: "facebook", label: "Facebook", icon: FacebookIcon },
-    { id: "instagram", label: "Instagram", icon: InstagramIcon, soon: true },
-    { id: "threads", label: "Threads", icon: ThreadsIcon, soon: true },
-  ];
-  const current = platforms.find((p) => p.id === d.platform) ?? platforms[0];
-  return (
-    <>
-      <IconNode
-        running={d.state.status?.running ?? false}
-        label="Social Media"
-        renderIcon={() => <FacebookIcon className="size-9 text-[#1877F2]" />}
-        onOpen={() => setOpen(true)}
-        onDelete={() => d.onDelete(id)}
-        onAdd={d.onAdd}
-        showLeft={false}
-      />
-      <NodeDialog
-        open={open}
-        onOpenChange={setOpen}
-        title="Social Media"
-        description="Choose which platform this flow targets."
-      >
-        <div className="grid grid-cols-3 gap-2">
-          {platforms.map((p) => {
-            const Icon = p.icon;
-            const selected = d.platform === p.id;
-            return (
-              <button
-                key={p.id}
-                type="button"
-                disabled={p.soon}
-                onClick={() => d.onPlatformChange(id, p.id)}
-                className={`relative flex flex-col items-center gap-2 rounded-md border p-3 text-xs transition-colors ${selected
-                    ? "border-emerald-500 bg-emerald-500/10 text-foreground"
-                    : "border-border hover:border-foreground/40"
-                  } ${p.soon ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
-              >
-                <Icon className="size-6" />
-                <span className="font-medium">{p.label}</span>
-                {p.soon && (
-                  <span className="absolute right-1 top-1 rounded bg-muted px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-muted-foreground">
-                    Soon
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </NodeDialog>
-    </>
-  );
-}
-
-function SessionNode({ id, data }: NodeProps) {
-  const d = data as {
-    state: RunState;
-    onLogin: () => void;
-    onDelete: (id: string) => void;
-    onAdd: () => void;
-  };
-  const [open, setOpen] = useState(false);
-  const has = d.state.status?.hasSession;
-  return (
-    <>
-      <IconNode
-        running={d.state.status?.running ?? false}
-        icon={KeyRound}
-        iconClassName="text-amber-500"
-        label="Session"
-        active={d.state.active === "session"}
-        onOpen={() => setOpen(true)}
-        onDelete={() => d.onDelete(id)}
-        onAdd={d.onAdd}
-      />
-      <NodeDialog
-        open={open}
-        onOpenChange={setOpen}
-        title="Session"
-        description="Login + saved cookies for the target platform."
-      >
-        <div className="rounded-md border border-border bg-muted/30 p-3 text-xs">
-          {has ? <>
-            <Check className="inline w-4 h-4 mr-1" />
-            Saved Facebook session
-          </> : "No session yet"}
-        </div>
-        <Button onClick={d.onLogin}>
-          {has ? "Re-login" : "Login to Facebook"}
-        </Button>
-      </NodeDialog>
-    </>
-  );
-}
-
-function TargetNode({ id, data }: NodeProps) {
-  const d = data as {
-    state: RunState;
-    url: string;
-    onUrlChange: (id: string, v: string) => void;
-    onDelete: (id: string) => void;
-    onAdd: () => void;
-  };
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <IconNode
-        running={d.state.status?.running ?? false}
-        icon={TargetIcon}
-        iconClassName="text-rose-500"
-        label="Target Page"
-        active={d.state.active === "target"}
-        onOpen={() => setOpen(true)}
-        onDelete={() => d.onDelete(id)}
-        onAdd={d.onAdd}
-      />
-      <NodeDialog
-        open={open}
-        onOpenChange={setOpen}
-        title="Target Page"
-        description="The page that will receive follows / likes."
-      >
-        <div className="flex flex-col gap-2">
-          <Label htmlFor={`target-url-${id}`} className="text-xs">
-            URL to receive follows
-          </Label>
-          <Input
-            id={`target-url-${id}`}
-            placeholder="https://www.facebook.com/example/"
-            value={d.url ?? ""}
-            onChange={(e) => d.onUrlChange(id, e.target.value)}
-          />
-        </div>
-        <div className="flex justify-end">
-          <Button onClick={() => setOpen(false)}>Save</Button>
-        </div>
-      </NodeDialog>
-    </>
-  );
-}
-
-function TargetPostNode({ id, data }: NodeProps) {
-  const d = data as {
-    state: RunState;
-    url: string;
-    onPostUrlChange: (id: string, v: string) => void;
-    onDelete: (id: string) => void;
-    onAdd: () => void;
-  };
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <IconNode
-        running={d.state.status?.running ?? false}
-        icon={TargetIcon}
-        iconClassName="text-fuchsia-500"
-        label="Target Post"
-        active={d.state.active === "targetPost"}
-        onOpen={() => setOpen(true)}
-        onDelete={() => d.onDelete(id)}
-        onAdd={d.onAdd}
-      />
-      <NodeDialog
-        open={open}
-        onOpenChange={setOpen}
-        title="Target Post"
-        description="The post that will receive reactions."
-      >
-        <div className="flex flex-col gap-2">
-          <Label htmlFor={`target-post-url-${id}`} className="text-xs">
-            Post URL
-          </Label>
-          <Input
-            id={`target-post-url-${id}`}
-            placeholder="https://www.facebook.com/.../posts/123..."
-            value={d.url ?? ""}
-            onChange={(e) => d.onPostUrlChange(id, e.target.value)}
-          />
-        </div>
-        <div className="flex justify-end">
-          <Button onClick={() => setOpen(false)}>Save</Button>
-        </div>
-      </NodeDialog>
-    </>
-  );
-}
-
-function ActionNode({ id, data }: NodeProps) {
-  const d = data as { state: RunState; onDelete: (id: string) => void };
-  const [open, setOpen] = useState(false);
-  const r = d.state.lastResult;
-  return (
-    <>
-      <IconNode
-        running={d.state.status?.running ?? false}
-        icon={Heart}
-        iconClassName="text-pink-500"
-        label="Follow / Like"
-        showRight={false}
-        active={d.state.active === "action"}
-        onOpen={() => setOpen(true)}
-        onDelete={() => d.onDelete(id)}
-      />
-      <NodeDialog
-        open={open}
-        onOpenChange={setOpen}
-        title="Follow / Like"
-        description="Tries Follow first, falls back to Like."
-      >
-        <div className="text-xs">
-          Last result: <span className="font-mono">{r ?? "—"}</span>
-        </div>
-      </NodeDialog>
-    </>
-  );
-}
-
-function ReactionsNode({ id, data }: NodeProps) {
-  const d = data as {
-    state: RunState;
-    reaction: ReactionKind;
-    onReactionChange: (id: string, r: ReactionKind) => void;
-    onDelete: (id: string) => void;
-  };
-  const [open, setOpen] = useState(false);
-  const current = REACTION_OPTIONS.find((r) => r.id === d.reaction) ?? REACTION_OPTIONS[0];
-  return (
-    <>
-      <IconNode
-        running={d.state.status?.running ?? false}
-        icon={Smile}
-        iconClassName="text-yellow-500"
-        label={`Reactions: ${current.label}`}
-        showRight={false}
-        active={d.state.active === "reactions"}
-        onOpen={() => setOpen(true)}
-        onDelete={() => d.onDelete(id)}
-      />
-      <NodeDialog
-        open={open}
-        onOpenChange={setOpen}
-        title="Reactions"
-        description="Drops the chosen reaction on the target post."
-      >
-        <div className="grid grid-cols-3 gap-2">
-          {REACTION_OPTIONS.map((r) => {
-            const selected = r.id === d.reaction;
-            return (
-              <button
-                key={r.id}
-                type="button"
-                onClick={() => d.onReactionChange(id, r.id)}
-                className={`flex flex-col items-center gap-1 rounded-md border p-3 text-xs transition-colors ${
-                  selected
-                    ? "border-emerald-500 bg-emerald-500/10 text-foreground"
-                    : "border-border hover:border-foreground/40"
-                }`}
-              >
-                <span className="text-2xl leading-none">{r.emoji}</span>
-                <span className="font-medium">{r.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </NodeDialog>
-    </>
-  );
-}
-
 const nodeTypes = {
-  social: SocialMediaNode,
-  session: SessionNode,
-  target: TargetNode,
-  targetPost: TargetPostNode,
-  action: ActionNode,
-  reactions: ReactionsNode,
+  social: FlowNode,
+  session: FlowNode,
+  target: FlowNode,
+  targetPost: FlowNode,
+  action: FlowNode,
+  reactions: FlowNode,
 };
-
-/* ---------- palette ---------- */
-
-const PALETTE: Array<{
-  type: NodeKey;
-  label: string;
-  description: string;
-  icon: LucideIcon;
-}> = [
-    { type: "social", label: "Social Media", description: "Pick the platform", icon: Share2 },
-    { type: "session", label: "Session", description: "Login + saved cookies", icon: KeyRound },
-    { type: "target", label: "Target Page", description: "URL to receive follows", icon: TargetIcon },
-    { type: "targetPost", label: "Target Post", description: "Post URL for reactions", icon: TargetIcon },
-    { type: "action", label: "Follow / Like", description: "Try Follow, fall back to Like", icon: Heart },
-    { type: "reactions", label: "Reactions", description: "Drop a reaction on the target", icon: Smile },
-  ];
 
 /* ---------- main ---------- */
 
@@ -615,6 +382,7 @@ function WorkflowTitle({
       <input
         ref={inputRef}
         value={draft}
+        aria-label="Workflow name"
         onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}
         onKeyDown={(e) => {
@@ -624,7 +392,7 @@ function WorkflowTitle({
             setEditing(false);
           }
         }}
-        className="w-64 rounded-md border border-border bg-background px-2 py-1 text-xl font-semibold tracking-tight outline-none focus:border-foreground/40"
+        className="h-8 w-28 min-w-0 rounded-full border border-border bg-black px-3 text-[18px] font-semibold outline-none focus:border-faint sm:w-48"
       />
     );
   }
@@ -634,11 +402,20 @@ function WorkflowTitle({
       type="button"
       disabled={disabled}
       onClick={() => setEditing(true)}
-      className="rounded-md px-2 py-1 -mx-2 text-xl font-semibold tracking-tight hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-60"
-      title={disabled ? undefined : "Click to rename"}
+      className="h-8 max-w-[9rem] truncate rounded-full px-2.5 text-base sm:max-w-[16rem] sm:text-[18px] font-semibold text-white hover:bg-raised disabled:cursor-not-allowed disabled:opacity-60"
+      title={disabled ? undefined : "Rename workflow"}
     >
       {name}
     </button>
+  );
+}
+
+function PanelSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="flex flex-col gap-3 border-t border-border px-5 py-5 first:border-t-0">
+      <h3 className="text-sm font-medium text-white">{title}</h3>
+      {children}
+    </section>
   );
 }
 
@@ -653,6 +430,10 @@ function FlowInner({ accountId }: { accountId: string }) {
   const [fast, setFast] = useState(true);
   const [showLogs, setShowLogs] = useState(true);
   const [showWorkflows, setShowWorkflows] = useState(false);
+  const [showPalette, setShowPalette] = useState(false);
+  const [showInspector, setShowInspector] = useState(false);
+  const [paletteQuery, setPaletteQuery] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [workflows, setWorkflows] = useState<
     Array<{ id: string; name: string; updatedAt: number }>
@@ -699,7 +480,7 @@ function FlowInner({ accountId }: { accountId: string }) {
 
   useEffect(() => {
     if (logsRef.current) logsRef.current.scrollTop = logsRef.current.scrollHeight;
-  }, [logs]);
+  }, [logs, showLogs]);
 
   const { active, current, lastResult } = useMemo(() => {
     let a: NodeKey | null = null;
@@ -817,13 +598,8 @@ function FlowInner({ accountId }: { accountId: string }) {
             ? { ...n, data: { ...n.data, reaction: r } }
             : n,
         );
-        // Reactions live on the reactions node, but posts on targetPost. Pair
-        // them by walking edges: targetPost → reactions. Each reactions node
-        // applies its kind to whichever Target Post(s) feed into it.
-        // Simpler model for now: store reaction on reactions node, apply the
-        // first reactions-node's kind to all post URLs at sync time. Since
-        // we don't have edge access here, we fall back to reading reaction
-        // from the changed node and applying to every target post.
+        // Reactions live on the reactions node, but posts on targetPost. The
+        // changed node's kind is applied to every target post at sync time.
         const reactionForAll = r;
         const posts = next
           .filter((n) => n.type === "targetPost")
@@ -875,39 +651,15 @@ function FlowInner({ accountId }: { accountId: string }) {
   const addPickerRef = useRef<(sourceId: string) => void>(() => { });
   const [pickerSourceId, setPickerSourceId] = useState<string | null>(null);
 
+  // Config edits go through the inspector; nodes only carry run state and
+  // their hover delete / add-next handlers.
   const dataFor = useCallback(
-    (id: string): Record<string, unknown> => {
-      const onDelete = (nodeId: string) => deleteNodeRef.current(nodeId);
-      const onAdd = () => addPickerRef.current(id);
-      const type = id.split("-")[0];
-      switch (type) {
-        case "social":
-          return { state, onPlatformChange, onDelete, onAdd };
-        case "session":
-          return { state, onLogin, onDelete, onAdd };
-        case "target":
-          return { state, onUrlChange: onTargetUrlChange, onDelete, onAdd };
-        case "targetPost":
-          return { state, onPostUrlChange, onDelete, onAdd };
-        case "reactions":
-          return { state, onReactionChange, onDelete, onAdd };
-        default:
-          return { state, onDelete, onAdd };
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
+    (id: string): Record<string, unknown> => ({
       state,
-      headed,
-      fast,
-      onLogin,
-      onStart,
-      onStop,
-      onTargetUrlChange,
-      onPlatformChange,
-      onPostUrlChange,
-      onReactionChange,
-    ],
+      onDelete: (nodeId: string) => deleteNodeRef.current(nodeId),
+      onAdd: () => addPickerRef.current(id),
+    }),
+    [state],
   );
 
   useEffect(() => {
@@ -915,11 +667,7 @@ function FlowInner({ accountId }: { accountId: string }) {
   }, []);
 
   const initialNodes = useMemo<Node[]>(() => [], []);
-
-  const initialEdges = useMemo<Edge[]>(
-    () => [],
-    [],
-  );
+  const initialEdges = useMemo<Edge[]>(() => [], []);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -986,16 +734,28 @@ function FlowInner({ accountId }: { accountId: string }) {
     });
   }, [config, dataFor, setNodes]);
 
-  useEffect(() => {
-    const running = !!status?.running;
-    setEdges((prev) =>
-      prev.map((e) => ({
+  // Edges are styled from node run status at render time (not stored), so a
+  // run never leaks animation flags into the saved workflow.
+  const viewEdges = useMemo<Edge[]>(() => {
+    const typeOf = new Map(nodes.map((n) => [n.id, n.type as NodeKey]));
+    return edges.map((e) => {
+      const s = typeOf.get(e.source);
+      const t = typeOf.get(e.target);
+      const from = s ? runStatus(s, state) : "idle";
+      const to = t ? runStatus(t, state) : "idle";
+      const flowing = to === "running" && from !== "idle";
+      const passed = from === "done" && to === "done";
+      return {
         ...e,
-        animated: running,
-        style: { ...(e.style ?? {}), stroke: running ? "#10b981" : undefined },
-      })),
-    );
-  }, [status?.running, setEdges]);
+        type: "smoothstep",
+        animated: flowing,
+        style: {
+          stroke: flowing || passed ? "var(--data)" : to === "error" ? "var(--danger-ink)" : "#3a3a3a",
+          strokeWidth: 2,
+        },
+      };
+    });
+  }, [edges, nodes, state]);
 
   const refreshWorkflows = useCallback(async () => {
     const r = await fetch("/api/workflows", { cache: "no-store" });
@@ -1004,6 +764,21 @@ function FlowInner({ accountId }: { accountId: string }) {
     setWorkflows(j.items);
     return j.items;
   }, []);
+
+  const starterData = useMemo(
+    () => ({
+      nodes: [
+        {
+          id: "social",
+          type: "social",
+          position: { x: 0, y: 0 },
+          data: { platform: "facebook" },
+        },
+      ],
+      edges: [],
+    }),
+    [],
+  );
 
   // Initial load: fetch list, auto-select most recent or create blank.
   useEffect(() => {
@@ -1032,22 +807,7 @@ function FlowInner({ accountId }: { accountId: string }) {
     return () => {
       off = true;
     };
-  }, [refreshWorkflows]);
-
-  const starterData = useMemo(
-    () => ({
-      nodes: [
-        {
-          id: "social",
-          type: "social",
-          position: { x: 0, y: 0 },
-          data: { platform: "facebook" },
-        },
-      ],
-      edges: [],
-    }),
-    [],
-  );
+  }, [refreshWorkflows, starterData]);
 
   // Load nodes/edges when active workflow changes.
   useEffect(() => {
@@ -1061,10 +821,12 @@ function FlowInner({ accountId }: { accountId: string }) {
       loadedWorkflowRef.current = j.id;
       const nodesIn = j.data?.nodes ?? [];
       const edgesIn = j.data?.edges ?? [];
+      setSelectedId(null);
       setNodes(
-        nodesIn.map((n) => ({ ...n, data: { ...n.data, ...dataFor(n.id) } })),
+        nodesIn.map((n) => ({ ...n, selected: false, data: { ...n.data, ...dataFor(n.id) } })),
       );
       setEdges(edgesIn);
+      requestAnimationFrame(() => flow.fitView({ padding: 0.3, maxZoom: 1 }));
 
       // Mirror the loaded workflow's pages + posts to the runner's
       // per-account targets file so the automation backend sees them
@@ -1094,33 +856,38 @@ function FlowInner({ accountId }: { accountId: string }) {
     return () => {
       off = true;
     };
-  }, [activeWorkflowId, setNodes, setEdges, dataFor, qs]);
+  }, [activeWorkflowId, setNodes, setEdges, dataFor, qs, flow]);
 
-  // Autosave nodes/edges (debounced) for the active workflow.
+  // Save nodes/edges for the active workflow: debounced autosave + Save button.
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveNow = useCallback(async () => {
+    if (!activeWorkflowId || loadedWorkflowRef.current !== activeWorkflowId) return false;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    // Strip non-serializable function fields from data.
+    const cleanNodes = nodes.map((n) => {
+      const d = (n.data ?? {}) as Record<string, unknown>;
+      const data: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(d)) {
+        if (typeof v !== "function" && k !== "state") data[k] = v;
+      }
+      return { ...n, data };
+    });
+    const res = await fetch(`/api/workflows/${activeWorkflowId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ data: { nodes: cleanNodes, edges } }),
+    }).catch(() => null);
+    return !!res?.ok;
+  }, [nodes, edges, activeWorkflowId]);
+
   useEffect(() => {
     if (!activeWorkflowId || loadedWorkflowRef.current !== activeWorkflowId) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(async () => {
-      // Strip non-serializable function fields from data.
-      const cleanNodes = nodes.map((n) => {
-        const d = (n.data ?? {}) as Record<string, unknown>;
-        const data: Record<string, unknown> = {};
-        for (const [k, v] of Object.entries(d)) {
-          if (typeof v !== "function" && k !== "state") data[k] = v;
-        }
-        return { ...n, data };
-      });
-      await fetch(`/api/workflows/${activeWorkflowId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ data: { nodes: cleanNodes, edges } }),
-      });
-    }, 600);
+    saveTimerRef.current = setTimeout(saveNow, 600);
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
-  }, [nodes, edges, activeWorkflowId]);
+  }, [saveNow, activeWorkflowId]);
 
   const createWorkflow = useCallback(async () => {
     const r = await fetch("/api/workflows", {
@@ -1133,6 +900,7 @@ function FlowInner({ accountId }: { accountId: string }) {
     setWorkflows((ws) => [{ id: j.id, name: j.name, updatedAt: j.updatedAt }, ...ws]);
     loadedWorkflowRef.current = null;
     setActiveWorkflowId(j.id);
+    setShowWorkflows(false);
   }, [starterData]);
 
   const deleteWorkflow = useCallback(
@@ -1176,48 +944,47 @@ function FlowInner({ accountId }: { accountId: string }) {
   const pickerOptions = useMemo(() => {
     if (!pickerSource?.type) return [];
     const allowed = ALLOWED_CONNECTIONS[pickerSource.type] ?? [];
-    return PALETTE.filter((p) => allowed.includes(p.type));
+    return NODE_KEYS.filter((k) => allowed.includes(k));
   }, [pickerSource, ALLOWED_CONNECTIONS]);
+
+  const newNode = useCallback(
+    (type: NodeKey, position: XYPosition): Node => {
+      const id = `${type}-${Date.now().toString(36)}`;
+      return { id, type, position, data: { ...dataFor(id), ...NODE_DEFAULTS[type] } };
+    },
+    [dataFor],
+  );
 
   const addNodeFromPicker = useCallback(
     (type: NodeKey) => {
       if (!pickerSource) return;
-      const id = `${type}-${Date.now().toString(36)}`;
-      const baseData = dataFor(id);
-      const data =
-        type === "target"
-          ? { ...baseData, url: "" }
-          : type === "targetPost"
-            ? { ...baseData, url: "" }
-            : type === "reactions"
-              ? { ...baseData, reaction: "like" as ReactionKind }
-              : type === "social"
-                ? { ...baseData, platform: "facebook" as Platform }
-                : baseData;
-      const newNode: Node = {
-        id,
-        type,
-        position: {
-          x: pickerSource.position.x + 200,
-          y: pickerSource.position.y,
-        },
-        data,
-      };
-      setNodes((nds) => [...nds, newNode]);
+      const node = newNode(type, {
+        x: pickerSource.position.x + 240,
+        y: pickerSource.position.y,
+      });
+      setNodes((nds) => [...nds, node]);
       setEdges((eds) =>
-        addEdge(
-          {
-            id: `e-${pickerSource.id}-${id}`,
-            source: pickerSource.id,
-            target: id,
-            animated: !!status?.running,
-          },
-          eds,
-        ),
+        addEdge({ id: `e-${pickerSource.id}-${node.id}`, source: pickerSource.id, target: node.id }, eds),
       );
       setPickerSourceId(null);
+      setSelectedId(node.id);
     },
-    [pickerSource, dataFor, setNodes, setEdges, status?.running],
+    [pickerSource, newNode, setNodes, setEdges],
+  );
+
+  // Palette click: drop the node right of the right-most node.
+  const addNodeFromPalette = useCallback(
+    (type: NodeKey) => {
+      const right = nodes.reduce<Node | null>(
+        (best, n) => (!best || n.position.x > best.position.x ? n : best),
+        null,
+      );
+      const node = newNode(type, right ? { x: right.position.x + 240, y: right.position.y } : { x: 0, y: 0 });
+      setNodes((nds) => [...nds, node]);
+      setSelectedId(node.id);
+      setShowPalette(false);
+    },
+    [nodes, newNode, setNodes],
   );
 
   const isValidConnection = useCallback(
@@ -1235,9 +1002,9 @@ function FlowInner({ accountId }: { accountId: string }) {
   const onConnect = useCallback(
     (conn: Connection) => {
       if (!isValidConnection(conn)) return;
-      setEdges((eds) => addEdge({ ...conn, animated: !!status?.running }, eds));
+      setEdges((eds) => addEdge(conn, eds));
     },
-    [setEdges, status?.running, isValidConnection],
+    [setEdges, isValidConnection],
   );
 
   const onDragOver = useCallback((e: React.DragEvent) => {
@@ -1251,86 +1018,520 @@ function FlowInner({ accountId }: { accountId: string }) {
       const type = e.dataTransfer.getData("application/x-fbauto-node") as NodeKey;
       if (!type || !nodeTypes[type as keyof typeof nodeTypes]) return;
       const position = flow.screenToFlowPosition({ x: e.clientX, y: e.clientY });
-      const id = `${type}-${Date.now().toString(36)}`;
-      const baseData = dataFor(type);
-      const data =
-        type === "target"
-          ? { ...baseData, url: "" }
-          : type === "social"
-            ? { ...baseData, platform: "facebook" as Platform }
-            : baseData;
-      const newNode: Node = { id, type, position, data };
-      setNodes((nds) => [...nds, newNode]);
+      const node = newNode(type, position);
+      setNodes((nds) => [...nds, node]);
+      setSelectedId(node.id);
     },
-    [flow, dataFor, setNodes],
+    [flow, newNode, setNodes],
   );
 
+  const running = !!status?.running;
+  const hasSession = !!status?.hasSession;
+  const selected = selectedId ? nodes.find((n) => n.id === selectedId) ?? null : null;
+  const workflowName =
+    workflows.find((w) => w.id === activeWorkflowId)?.name ?? "Automation flow";
+
+  /* ---------- palette ---------- */
+
+  const q = paletteQuery.trim().toLowerCase();
+  const paletteBody = (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="px-4 pt-4 pb-3">
+        <div className="relative">
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-faint" />
+          <Input
+            value={paletteQuery}
+            onChange={(e) => setPaletteQuery(e.target.value)}
+            placeholder="Search nodes"
+            aria-label="Search nodes"
+            className="pl-9"
+          />
+        </div>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-4">
+        {GROUPS.map((group) => {
+          const items = NODE_KEYS.filter(
+            (k) =>
+              NODE_META[k].group === group &&
+              (!q || `${NODE_META[k].label} ${NODE_META[k].description}`.toLowerCase().includes(q)),
+          );
+          if (items.length === 0) return null;
+          return (
+            <div key={group} className="flex flex-col pt-3">
+              <span className="px-2 pb-1.5 text-xs text-faint">{group}</span>
+              {items.map((k) => {
+                const m = NODE_META[k];
+                const Icon = m.icon;
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData("application/x-fbauto-node", k);
+                      e.dataTransfer.effectAllowed = "move";
+                    }}
+                    onClick={() => addNodeFromPalette(k)}
+                    className="flex cursor-grab items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-raised active:cursor-grabbing"
+                    title="Drag onto the canvas or click to add"
+                  >
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-black text-white">
+                      <Icon className="size-4" />
+                    </span>
+                    <span className="flex min-w-0 flex-col">
+                      <span className="truncate text-sm font-medium text-white">{m.label}</span>
+                      <span className="truncate text-xs text-muted-foreground">{m.description}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })}
+        {q && NODE_KEYS.every((k) => !`${NODE_META[k].label} ${NODE_META[k].description}`.toLowerCase().includes(q)) && (
+          <p className="px-2 pt-3 text-sm text-muted-foreground">No node matches “{paletteQuery}”.</p>
+        )}
+      </div>
+    </div>
+  );
+
+  /* ---------- inspector ---------- */
+
+  const selType = selected?.type as NodeKey | undefined;
+  const selData = (selected?.data ?? {}) as NodeData;
+
+  const sessionBlock = (
+    <>
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm text-muted-foreground">Facebook</span>
+        {hasSession ? (
+          <Badge variant="positive">
+            <Check data-icon="inline-start" />
+            Saved session
+          </Badge>
+        ) : (
+          <Badge variant="warning">Not logged in</Badge>
+        )}
+      </div>
+      <Button variant="outline" onClick={onLogin} className="self-start">
+        {hasSession ? "Log in again" : "Log in to Facebook"}
+      </Button>
+    </>
+  );
+
+  const inspectorBody = selected && selType ? (
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+      <div className="flex items-start gap-3 px-5 pt-5 pb-4">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-black text-white">
+          {(() => {
+            const Icon = NODE_META[selType].icon;
+            return <Icon className="size-4" />;
+          })()}
+        </span>
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <h2 className="truncate text-base font-medium text-white">{NODE_META[selType].label}</h2>
+          <p className="text-sm text-muted-foreground">{NODE_META[selType].description}.</p>
+        </div>
+        <StatusMark status={runStatus(selType, state)} />
+      </div>
+
+      <PanelSection title="Settings">
+        {selType === "social" && (
+          <div className="grid grid-cols-3 gap-2">
+            {PLATFORMS.map((p) => {
+              const Icon = p.icon;
+              const on = (selData.platform ?? "facebook") === p.id;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  disabled={p.soon}
+                  onClick={() => onPlatformChange(selected.id, p.id)}
+                  aria-pressed={on}
+                  className={cn(
+                    "flex flex-col items-center gap-2 rounded-xl border bg-black px-2 py-3 text-xs transition-colors",
+                    on ? "border-white text-white" : "border-border text-muted-foreground hover:border-faint",
+                    p.soon && "cursor-not-allowed opacity-50",
+                  )}
+                >
+                  <Icon className="size-5" />
+                  <span className="font-medium">{p.label}</span>
+                  {p.soon && <span className="text-faint">Soon</span>}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {selType === "session" && sessionBlock}
+        {(selType === "target" || selType === "targetPost") && (
+          <div className="flex flex-col gap-2">
+            <Label htmlFor={`node-url-${selected.id}`}>
+              {selType === "target" ? "Page URL" : "Post URL"}
+            </Label>
+            <Input
+              id={`node-url-${selected.id}`}
+              placeholder={
+                selType === "target"
+                  ? "https://www.facebook.com/example/"
+                  : "https://www.facebook.com/.../posts/123..."
+              }
+              value={selData.url ?? ""}
+              onChange={(e) =>
+                selType === "target"
+                  ? onTargetUrlChange(selected.id, e.target.value)
+                  : onPostUrlChange(selected.id, e.target.value)
+              }
+            />
+            <p className="text-xs text-faint">
+              {selType === "target"
+                ? "The page that receives follows or likes."
+                : "The post that receives reactions."}
+            </p>
+          </div>
+        )}
+        {selType === "action" && (
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <span className="text-muted-foreground">Last result</span>
+            <span className="font-mono text-white">{lastResult ?? "—"}</span>
+          </div>
+        )}
+        {selType === "reactions" && (
+          <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Reaction">
+            {REACTION_OPTIONS.map((r) => {
+              const on = (selData.reaction ?? "like") === r.id;
+              return (
+                <button
+                  key={r.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  onClick={() => onReactionChange(selected.id, r.id)}
+                  className={cn(
+                    "h-9 rounded-full border bg-black text-sm font-medium transition-colors",
+                    on ? "border-white text-white" : "border-border text-muted-foreground hover:border-faint",
+                  )}
+                >
+                  {r.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </PanelSection>
+
+      <PanelSection title="Node">
+        <div className="flex items-center justify-between gap-3 text-sm">
+          <span className="text-muted-foreground">ID</span>
+          <span className="truncate font-mono text-xs text-faint">{selected.id}</span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {NODE_META[selType].output && (
+            <Button variant="outline" size="sm" onClick={() => setPickerSourceId(selected.id)}>
+              <Plus data-icon="inline-start" />
+              Add next node
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              deleteNodeRef.current(selected.id);
+              setSelectedId(null);
+            }}
+          >
+            <Trash2 data-icon="inline-start" />
+            Delete node
+          </Button>
+        </div>
+      </PanelSection>
+    </div>
+  ) : (
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+      <div className="flex flex-col gap-0.5 px-5 pt-5 pb-4">
+        <h2 className="text-base font-medium text-white">Workflow</h2>
+        <p className="text-sm text-muted-foreground">
+          <span className="num">{nodes.length}</span> {nodes.length === 1 ? "node" : "nodes"},{" "}
+          <span className="num">{edges.length}</span> {edges.length === 1 ? "connection" : "connections"}. Select a
+          node to edit it.
+        </p>
+      </div>
+      <PanelSection title="Session">{sessionBlock}</PanelSection>
+      <PanelSection title="Run options">
+        <label className="flex items-center justify-between gap-4 text-sm">
+          <span className="flex flex-col">
+            <span className="text-white">Show browser</span>
+            <span className="text-xs text-faint">Open a visible window while it runs</span>
+          </span>
+          <Switch checked={headed} onCheckedChange={setHeaded} />
+        </label>
+        <label className="flex items-center justify-between gap-4 text-sm">
+          <span className="flex flex-col">
+            <span className="text-white">Fast mode</span>
+            <span className="text-xs text-faint">Shorter waits between steps</span>
+          </span>
+          <Switch checked={fast} onCheckedChange={setFast} />
+        </label>
+      </PanelSection>
+      <PanelSection title="Last run">
+        <div className="flex items-center justify-between gap-3 text-sm">
+          <span className="text-muted-foreground">Status</span>
+          {running ? <Badge variant="positive">Running</Badge> : <Badge variant="neutral">Idle</Badge>}
+        </div>
+        <div className="flex items-center justify-between gap-3 text-sm">
+          <span className="text-muted-foreground">Progress</span>
+          <span className="num text-white">{current ? `${current.i}/${current.n}` : "—"}</span>
+        </div>
+        <div className="flex items-center justify-between gap-3 text-sm">
+          <span className="text-muted-foreground">Last result</span>
+          <span className="font-mono text-white">{lastResult ?? "—"}</span>
+        </div>
+      </PanelSection>
+    </div>
+  );
+
+  const lastLog = logs[logs.length - 1];
+
   return (
-    <div className="flex h-[calc(100vh-3rem)] flex-col gap-3">
-      <header className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+    <>
+      <AppTopbar title="Automation flow" icon={Workflow}>
+        <h1 className="flex min-w-0 items-center text-lg font-semibold">
           <WorkflowTitle
-            name={
-              workflows.find((w) => w.id === activeWorkflowId)?.name ??
-              "Automation Flow"
-            }
+            name={workflowName}
             disabled={!activeWorkflowId}
             onRename={(next) => {
               if (!activeWorkflowId) return;
               renameWorkflow(activeWorkflowId, next);
             }}
           />
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon-sm"
             onClick={() => setShowWorkflows(true)}
-            className="rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+            aria-label="Switch workflow"
+            title="Switch workflow"
           >
-            Add new workflow
-          </button>
-        </div>
-        <div className="flex items-center gap-3 text-sm">
-          <button
-            type="button"
-            onClick={() => setShowLogs((v) => !v)}
-            className="rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+            <ChevronsUpDown />
+          </Button>
+        </h1>
+        {running ? (
+          <Badge variant="positive" className="hidden lg:inline-flex">
+            <Loader2 data-icon="inline-start" className="animate-spin" />
+            Running{current ? <span className="num">&nbsp;{current.i}/{current.n}</span> : null}
+          </Badge>
+        ) : (
+          <Badge variant="neutral" className="hidden lg:inline-flex">
+            Idle
+          </Badge>
+        )}
+        <Button
+          variant="outline"
+          size="sm"
+          className="hidden sm:inline-flex"
+          aria-label="Save workflow"
+          onClick={async () => {
+            const ok = await saveNow();
+            if (ok) toast.success("Workflow saved");
+            else toast.error("Could not save the workflow.");
+          }}
+          disabled={!activeWorkflowId}
+        >
+          <Save data-icon="inline-start" />
+          Save
+        </Button>
+        {running ? (
+          <Button variant="outline" size="sm" onClick={onStop}>
+            <Square data-icon="inline-start" />
+            Stop
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            onClick={onStart}
+            disabled={!hasSession}
+            title={hasSession ? "Run workflow" : "Log in first"}
           >
-            {showLogs ? "Hide logs" : "Show logs"}
-          </button>
-          <span
-            className={`inline-block h-2.5 w-2.5 rounded-full ${status?.running ? "bg-emerald-500" : "bg-zinc-400"
-              }`}
-          />
-          {status?.running ? "Running" : "Idle"}
+            <Play data-icon="inline-start" />
+            Run
+          </Button>
+        )}
+      </AppTopbar>
+
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <aside className="hidden w-64 shrink-0 flex-col border-r border-border md:flex" aria-label="Nodes">
+          <div className="flex h-12 shrink-0 items-center border-b border-border px-4 text-sm font-medium">
+            Nodes
+          </div>
+          {paletteBody}
+        </aside>
+
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="relative min-h-0 flex-1" onDragOver={onDragOver} onDrop={onDrop}>
+            <ReactFlow
+              nodes={nodes}
+              edges={viewEdges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              isValidConnection={isValidConnection}
+              nodeTypes={nodeTypes}
+              onNodeClick={(_, n) => {
+                setSelectedId(n.id);
+                if (window.matchMedia("(max-width: 1023px)").matches) setShowInspector(true);
+              }}
+              onPaneClick={() => setSelectedId(null)}
+              connectionLineType={ConnectionLineType.SmoothStep}
+              connectionLineStyle={{ stroke: "#fff", strokeWidth: 2 }}
+              fitView
+              fitViewOptions={{ padding: 0.3, maxZoom: 1 }}
+              colorMode="dark"
+              proOptions={{ hideAttribution: true }}
+              deleteKeyCode={["Backspace", "Delete"]}
+              style={{ background: "transparent" }}
+            >
+              <Background variant={BackgroundVariant.Dots} gap={18} size={1} color="#262626" bgColor="transparent" />
+              <Controls
+                showInteractive={false}
+                className="!m-3 overflow-hidden !rounded-xl border border-border !shadow-none [&_button]:!border-border [&_button]:!bg-card [&_button]:!fill-white [&_button:hover]:!bg-raised"
+              />
+              {nodes.length > 3 && (
+              <MiniMap
+                pannable
+                zoomable
+                className="!m-3 hidden overflow-hidden !rounded-xl border border-border !bg-card !shadow-none md:block"
+                bgColor="#111111"
+                nodeColor="#2a2a2a"
+                nodeBorderRadius={6}
+                maskColor="rgba(0,0,0,0.55)"
+              />
+              )}
+            </ReactFlow>
+
+            <div className="absolute top-3 left-3 z-10 flex gap-2 lg:hidden">
+              <Button variant="outline" size="sm" className="bg-card md:hidden" onClick={() => setShowPalette(true)}>
+                <Blocks data-icon="inline-start" />
+                Nodes
+              </Button>
+              <Button variant="outline" size="sm" className="bg-card" onClick={() => setShowInspector(true)}>
+                <SlidersHorizontal data-icon="inline-start" />
+                {selected ? "Node settings" : "Workflow"}
+              </Button>
+            </div>
+
+            {nodes.length === 0 && activeWorkflowId && (
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-6">
+                <p className="max-w-xs text-center text-sm text-muted-foreground">
+                  This workflow is empty. Start with a Social media trigger from Nodes.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="shrink-0 border-t border-border bg-background">
+            <button
+              type="button"
+              onClick={() => setShowLogs((v) => !v)}
+              aria-expanded={showLogs}
+              className="flex h-10 w-full min-w-0 items-center gap-2 px-4 text-sm hover:bg-card"
+            >
+              <ChevronDown className={cn("size-4 shrink-0 text-faint transition-transform", !showLogs && "-rotate-180")} />
+              <span className="font-medium">Logs</span>
+              <span className="num text-xs text-faint">{logs.length}</span>
+              {!showLogs && lastLog && (
+                <span className="ml-auto min-w-0 truncate font-mono text-xs text-faint">{lastLog.message}</span>
+              )}
+            </button>
+            {showLogs && (
+              <div
+                ref={logsRef}
+                className={cn(
+                  "overflow-y-auto bg-black px-4 pb-3 font-mono text-xs leading-relaxed",
+                  logs.length > 0 && "h-40 md:h-52",
+                )}
+              >
+                {logs.length === 0 ? (
+                  <p className="pt-1 font-sans text-sm text-muted-foreground">
+                    No log lines yet. Each step of a run shows up here.
+                  </p>
+                ) : (
+                  logs.map((l, i) => (
+                    <div
+                      key={i}
+                      className={cn(
+                        "break-words",
+                        l.level === "error"
+                          ? "text-danger-ink"
+                          : l.level === "warn"
+                            ? "text-warning"
+                            : "text-muted-foreground",
+                      )}
+                    >
+                      <span className="text-faint">{new Date(l.ts).toLocaleTimeString()} </span>
+                      {l.status && <span className="text-faint">[{l.status}] </span>}
+                      {l.source && <span className="text-white">{l.source} </span>}
+                      {l.target && <span className="text-faint">→ {l.target} </span>}
+                      <span>{l.message}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
         </div>
-      </header>
+
+        <aside className="hidden w-80 shrink-0 flex-col border-l border-border lg:flex" aria-label="Inspector">
+          <div className="flex h-12 shrink-0 items-center border-b border-border px-5 text-sm font-medium">
+            {selected ? "Node settings" : "Workflow settings"}
+          </div>
+          {inspectorBody}
+        </aside>
+      </div>
+
+      <Sheet open={showPalette} onOpenChange={setShowPalette}>
+        <SheetContent side="left" className="gap-0 p-0">
+          <SheetHeader className="border-b border-border">
+            <SheetTitle>Nodes</SheetTitle>
+            <SheetDescription>Tap a node to add it to the canvas.</SheetDescription>
+          </SheetHeader>
+          {paletteBody}
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={showInspector} onOpenChange={setShowInspector}>
+        <SheetContent side="right" className="gap-0 p-0">
+          <SheetHeader className="border-b border-border">
+            <SheetTitle>{selected ? "Node settings" : "Workflow settings"}</SheetTitle>
+            <SheetDescription>
+              {selected ? "Changes save automatically." : "Session, run options and the last run."}
+            </SheetDescription>
+          </SheetHeader>
+          {inspectorBody}
+        </SheetContent>
+      </Sheet>
 
       <Sheet open={showWorkflows} onOpenChange={setShowWorkflows}>
         <SheetContent side="left">
           <SheetHeader>
             <SheetTitle>Workflows</SheetTitle>
-            <SheetDescription>Switch, rename, or create a workflow.</SheetDescription>
+            <SheetDescription>Switch, rename or create a workflow.</SheetDescription>
           </SheetHeader>
-          <div className="flex min-h-0 flex-col gap-2 px-4 pb-4">
-            <button
-              type="button"
-              onClick={createWorkflow}
-              className="rounded-md border border-border bg-card px-2 py-1.5 text-left text-xs text-muted-foreground hover:border-foreground/40 hover:text-foreground"
-            >
-              + New workflow
-            </button>
-            <div className="flex min-h-0 flex-col gap-1 overflow-y-auto">
+          <div className="flex min-h-0 flex-col gap-3 px-4 pb-4">
+            <Button variant="outline" onClick={createWorkflow} className="self-start">
+              <Plus data-icon="inline-start" />
+              New workflow
+            </Button>
+            <div className="flex min-h-0 flex-col overflow-y-auto">
               {workflows.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No workflows yet.</p>
+                <p className="text-sm text-muted-foreground">No workflows yet.</p>
               ) : (
                 workflows.map((w) => {
-                  const selected = w.id === activeWorkflowId;
+                  const on = w.id === activeWorkflowId;
                   return (
                     <div
                       key={w.id}
-                      className={`group flex items-center gap-1 rounded-md border px-2 py-1.5 text-xs transition-colors ${selected
-                          ? "border-emerald-500 bg-emerald-500/10"
-                          : "border-border hover:border-foreground/40"
-                        }`}
+                      className={cn(
+                        "group flex items-center gap-1 rounded-xl px-2 py-1 text-sm transition-colors",
+                        on ? "bg-raised" : "hover:bg-card",
+                      )}
                     >
                       <button
                         type="button"
@@ -1347,20 +1548,21 @@ function FlowInner({ accountId }: { accountId: string }) {
                             renameWorkflow(w.id, next.trim());
                           }
                         }}
-                        className="min-w-0 flex-1 truncate text-left"
-                        title="Click to load — double-click to rename"
+                        className="min-w-0 flex-1 truncate py-1 text-left"
+                        title="Click to load, double-click to rename"
                       >
                         {w.name}
                       </button>
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
                         onClick={() => setDeleteTarget({ id: w.id, name: w.name })}
-                        className="hidden text-muted-foreground hover:text-destructive group-hover:block"
+                        className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
                         title="Delete"
                         aria-label="Delete workflow"
                       >
-                        ✕
-                      </button>
+                        <Trash2 />
+                      </Button>
                     </div>
                   );
                 })
@@ -1397,109 +1599,6 @@ function FlowInner({ accountId }: { accountId: string }) {
         </AlertDialogContent>
       </AlertDialog>
 
-      <div
-        className={`grid min-h-0 flex-1 grid-cols-1 gap-3 ${showLogs ? "lg:grid-cols-[1fr_360px]" : ""}`}
-      >
-
-        <div
-          className="min-h-0 overflow-hidden rounded-lg border bg-background"
-          onDragOver={onDragOver}
-          onDrop={onDrop}
-        >
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            isValidConnection={isValidConnection}
-            nodeTypes={nodeTypes}
-            fitView
-            colorMode="dark"
-            proOptions={{ hideAttribution: true }}
-            deleteKeyCode={["Backspace", "Delete"]}
-          >
-            <Background />
-            <Controls>
-              <ControlButton
-                onClick={onStart}
-                disabled={!!status?.running || !status?.hasSession}
-                title={
-                  !status?.hasSession
-                    ? "Login first"
-                    : status?.running
-                      ? "Already running"
-                      : "Start"
-                }
-              >
-                <Play className="size-3.5 text-emerald-600" />
-              </ControlButton>
-              <ControlButton
-                onClick={onStop}
-                disabled={!status?.running}
-                title="Stop"
-              >
-                <Square className="size-3.5 text-rose-600" />
-              </ControlButton>
-              <ControlButton
-                onClick={() => setHeaded((v) => !v)}
-                title={headed ? "Hide browser" : "Show browser"}
-              >
-                {headed ? (
-                  <Eye className="size-3.5 text-sky-600" />
-                ) : (
-                  <EyeOff className="size-3.5" />
-                )}
-              </ControlButton>
-              <ControlButton
-                onClick={() => setFast((v) => !v)}
-                title={fast ? "Fast mode (on)" : "Fast mode (off)"}
-              >
-                {fast ? (
-                  <Zap className="size-3.5 text-amber-500" />
-                ) : (
-                  <ZapOff className="size-3.5" />
-                )}
-              </ControlButton>
-            </Controls>
-            <MiniMap pannable zoomable />
-          </ReactFlow>
-        </div>
-
-        {showLogs && (
-          <aside className="flex min-h-0 flex-col rounded-lg border bg-background p-3">
-            <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Logs
-            </div>
-            <div
-              ref={logsRef}
-              className="min-h-0 flex-1 overflow-y-auto rounded-md bg-zinc-950 p-3 font-mono text-xs text-zinc-100"
-            >
-              {logs.map((l, i) => (
-                <div
-                  key={i}
-                  className={
-                    l.level === "error"
-                      ? "text-red-400"
-                      : l.level === "warn"
-                        ? "text-amber-300"
-                        : "text-zinc-200"
-                  }
-                >
-                  <span className="text-zinc-500">
-                    {new Date(l.ts).toLocaleTimeString()}{" "}
-                  </span>
-                  {l.status && <span className="text-zinc-400">[{l.status}] </span>}
-                  {l.source && <span className="text-blue-300">{l.source} </span>}
-                  {l.target && <span className="text-emerald-300">→ {l.target} </span>}
-                  <span>{l.message}</span>
-                </div>
-              ))}
-            </div>
-          </aside>
-        )}
-      </div>
-
       <Sheet
         open={pickerSourceId !== null}
         onOpenChange={(v) => !v && setPickerSourceId(null)}
@@ -1508,33 +1607,32 @@ function FlowInner({ accountId }: { accountId: string }) {
           <SheetHeader>
             <SheetTitle>Add next node</SheetTitle>
             <SheetDescription>
-              {pickerSource
-                ? `Choose what comes after ${pickerSource.type}.`
+              {pickerSource?.type
+                ? `Choose what comes after ${NODE_META[pickerSource.type as NodeKey]?.label ?? pickerSource.type}.`
                 : "Pick a node."}
             </SheetDescription>
           </SheetHeader>
-          <div className="flex flex-col gap-2 px-4 pb-4">
+          <div className="flex flex-col gap-1 px-2 pb-4">
             {pickerOptions.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No further nodes can follow this one.
-              </p>
+              <p className="px-2 text-sm text-muted-foreground">No further nodes can follow this one.</p>
             ) : (
-              pickerOptions.map((p) => {
-                const Icon = p.icon;
+              pickerOptions.map((k) => {
+                const m = NODE_META[k];
+                const Icon = m.icon;
                 return (
                   <button
-                    key={p.type}
+                    key={k}
                     type="button"
-                    onClick={() => addNodeFromPicker(p.type)}
-                    className="flex items-center gap-3 rounded-md border border-border bg-card p-3 text-left transition-colors hover:border-foreground/40"
+                    onClick={() => addNodeFromPicker(k)}
+                    className="flex items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-raised"
                   >
-                    <Icon className="size-5 shrink-0 text-muted-foreground" />
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium">{p.label}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {p.description}
-                      </div>
-                    </div>
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-black text-white">
+                      <Icon className="size-4" />
+                    </span>
+                    <span className="flex min-w-0 flex-col">
+                      <span className="text-sm font-medium text-white">{m.label}</span>
+                      <span className="text-xs text-muted-foreground">{m.description}</span>
+                    </span>
                   </button>
                 );
               })
@@ -1542,6 +1640,6 @@ function FlowInner({ accountId }: { accountId: string }) {
           </div>
         </SheetContent>
       </Sheet>
-    </div>
+    </>
   );
 }
