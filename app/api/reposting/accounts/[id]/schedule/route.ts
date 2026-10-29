@@ -59,8 +59,15 @@ export async function POST(
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
-      const send = (obj: unknown) =>
-        controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n"));
+      // After Stop the client is gone and enqueue throws; swallow it so the item
+      // in flight still finishes and its history record is written.
+      const send = (obj: unknown) => {
+        try {
+          controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n"));
+        } catch {
+          // client disconnected
+        }
+      };
 
       for (let i = 0; i < items.length; i++) {
         if (req.signal.aborted) {
@@ -99,7 +106,11 @@ export async function POST(
           send({ idx, url: item.url, step: "error", message: msg });
         }
       }
-      controller.close();
+      try {
+        controller.close();
+      } catch {
+        // client disconnected
+      }
     },
   });
 

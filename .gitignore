@@ -42,3 +42,6 @@ next-env.d.ts
 
 # automation runtime data
 /data/
+
+# design tool output (taste skill)
+/.taste-skill/

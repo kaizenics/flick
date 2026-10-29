@@ -20,11 +20,13 @@ export type VideoSource = {
   metadata: VideoMetadata;
 };
 
+import type { Segment } from "@/lib/video-editor/segments";
+
+export type { Segment };
+
+// Kept ranges of the source, in source time and play order. Gaps between them are cut.
 export type EditTimeline = {
-  trimStart: number;
-  trimEnd: number;
-  cutStart: number | null;
-  cutEnd: number | null;
+  segments: Segment[];
 };
 
 export type BlurFilter = {

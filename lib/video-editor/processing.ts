@@ -1,7 +1,8 @@
 import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { BlurFilter, EditTimeline, VideoMetadata } from "@/lib/video-editor/types";
+import type { BlurFilter, EditTimeline, Segment, VideoMetadata } from "@/lib/video-editor/types";
+import { segmentsDuration, validateSegments } from "@/lib/video-editor/segments";
 
 function runCommand(bin: string, args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -95,10 +96,7 @@ function asFilterNumber(n: number): string {
 }
 
 type NormalizedEdit = {
-  trimStart: number;
-  trimEnd: number;
-  cutStart: number | null;
-  cutEnd: number | null;
+  segments: Segment[];
   outputDuration: number;
 };
 
@@ -106,56 +104,8 @@ export function validateTimeline(
   timeline: EditTimeline,
   duration: number,
 ): NormalizedEdit {
-  const EPS = 0.001;
-  const rawTrimStart = timeline.trimStart;
-  const rawTrimEnd = timeline.trimEnd;
-  if (
-    !(
-      rawTrimStart >= 0 &&
-      rawTrimEnd > rawTrimStart &&
-      rawTrimEnd <= duration + EPS
-    )
-  ) {
-    throw new Error("Invalid trim range");
-  }
-  const trimStart = round3(clamp(rawTrimStart, 0, duration));
-  const trimEnd = round3(clamp(rawTrimEnd, 0, duration));
-  if (!(trimEnd - trimStart > 0)) throw new Error("Invalid trim range");
-
-  const cutStart =
-    timeline.cutStart == null
-      ? null
-      : round3(clamp(timeline.cutStart, 0, duration));
-  const cutEnd =
-    timeline.cutEnd == null ? null : round3(clamp(timeline.cutEnd, 0, duration));
-
-  let outputDuration = trimEnd - trimStart;
-  if (cutStart != null || cutEnd != null) {
-    if (cutStart == null || cutEnd == null) {
-      throw new Error("Cut range is incomplete");
-    }
-    if (
-      !(
-        cutStart >= trimStart - EPS &&
-        cutEnd <= trimEnd + EPS &&
-        cutEnd - cutStart > 0
-      )
-    ) {
-      throw new Error("Cut range must be inside trim range");
-    }
-    outputDuration -= cutEnd - cutStart;
-    if (outputDuration <= 0) {
-      throw new Error("Cut removed entire clip");
-    }
-  }
-
-  return {
-    trimStart,
-    trimEnd,
-    cutStart,
-    cutEnd,
-    outputDuration: round3(outputDuration),
-  };
+  const segments = validateSegments(timeline.segments, duration);
+  return { segments, outputDuration: segmentsDuration(segments) };
 }
 
 function intersects(aStart: number, aEnd: number, bStart: number, bEnd: number): boolean {
@@ -168,32 +118,15 @@ function blurIntervalsInOutput(
   blurEnd: number,
 ): Array<{ start: number; end: number }> {
   const intervals: Array<{ start: number; end: number }> = [];
-
-  if (edit.cutStart == null || edit.cutEnd == null) {
-    const start = clamp(blurStart, edit.trimStart, edit.trimEnd) - edit.trimStart;
-    const end = clamp(blurEnd, edit.trimStart, edit.trimEnd) - edit.trimStart;
-    if (end > start) intervals.push({ start: round3(start), end: round3(end) });
-    return intervals;
+  let offset = 0;
+  for (const seg of edit.segments) {
+    if (intersects(blurStart, blurEnd, seg.start, seg.end)) {
+      const s = offset + (clamp(blurStart, seg.start, seg.end) - seg.start);
+      const e = offset + (clamp(blurEnd, seg.start, seg.end) - seg.start);
+      if (e > s) intervals.push({ start: round3(s), end: round3(e) });
+    }
+    offset += seg.end - seg.start;
   }
-
-  const seg1OrigStart = edit.trimStart;
-  const seg1OrigEnd = edit.cutStart;
-  const seg2OrigStart = edit.cutEnd;
-  const seg2OrigEnd = edit.trimEnd;
-  const seg1Dur = seg1OrigEnd - seg1OrigStart;
-
-  if (intersects(blurStart, blurEnd, seg1OrigStart, seg1OrigEnd)) {
-    const s = clamp(blurStart, seg1OrigStart, seg1OrigEnd) - seg1OrigStart;
-    const e = clamp(blurEnd, seg1OrigStart, seg1OrigEnd) - seg1OrigStart;
-    if (e > s) intervals.push({ start: round3(s), end: round3(e) });
-  }
-
-  if (intersects(blurStart, blurEnd, seg2OrigStart, seg2OrigEnd)) {
-    const s = seg1Dur + (clamp(blurStart, seg2OrigStart, seg2OrigEnd) - seg2OrigStart);
-    const e = seg1Dur + (clamp(blurEnd, seg2OrigStart, seg2OrigEnd) - seg2OrigStart);
-    if (e > s) intervals.push({ start: round3(s), end: round3(e) });
-  }
-
   return intervals;
 }
 
@@ -219,11 +152,6 @@ export function validateBlur(
   }
   if (!(startTime >= 0 && endTime > startTime && endTime <= meta.duration)) {
     throw new Error("Blur time range is invalid");
-  }
-
-  const intersectsTimeline = intersects(startTime, endTime, edit.trimStart, edit.trimEnd);
-  if (!intersectsTimeline) {
-    throw new Error("Blur range must intersect trimmed timeline");
   }
 
   const intervals = blurIntervalsInOutput(edit, startTime, endTime);
@@ -267,28 +195,18 @@ function buildFilterGraph(params: {
   let videoLabel = "vwork";
   const audioLabel: string | null = hasAudio ? "awork" : null;
 
-  if (edit.cutStart == null || edit.cutEnd == null) {
-    chains.push(
-      `[0:v]trim=start=${asFilterNumber(edit.trimStart)}:end=${asFilterNumber(edit.trimEnd)},setpts=PTS-STARTPTS[${videoLabel}]`,
-    );
-    if (hasAudio && audioLabel) {
-      chains.push(
-        `[0:a]atrim=start=${asFilterNumber(edit.trimStart)}:end=${asFilterNumber(edit.trimEnd)},asetpts=PTS-STARTPTS[${audioLabel}]`,
-      );
-    }
-  } else {
-    chains.push(
-      `[0:v]trim=start=${asFilterNumber(edit.trimStart)}:end=${asFilterNumber(edit.cutStart)},setpts=PTS-STARTPTS[v1]`,
-      `[0:v]trim=start=${asFilterNumber(edit.cutEnd)}:end=${asFilterNumber(edit.trimEnd)},setpts=PTS-STARTPTS[v2]`,
-      `[v1][v2]concat=n=2:v=1:a=0[${videoLabel}]`,
-    );
-
-    if (hasAudio && audioLabel) {
-      chains.push(
-        `[0:a]atrim=start=${asFilterNumber(edit.trimStart)}:end=${asFilterNumber(edit.cutStart)},asetpts=PTS-STARTPTS[a1]`,
-        `[0:a]atrim=start=${asFilterNumber(edit.cutEnd)}:end=${asFilterNumber(edit.trimEnd)},asetpts=PTS-STARTPTS[a2]`,
-        `[a1][a2]concat=n=2:v=0:a=1[${audioLabel}]`,
-      );
+  const n = edit.segments.length;
+  edit.segments.forEach((seg, i) => {
+    const range = `start=${asFilterNumber(seg.start)}:end=${asFilterNumber(seg.end)}`;
+    chains.push(`[0:v]trim=${range},setpts=PTS-STARTPTS[${n === 1 ? videoLabel : `v${i}`}]`);
+    if (audioLabel) chains.push(`[0:a]atrim=${range},asetpts=PTS-STARTPTS[${n === 1 ? audioLabel : `a${i}`}]`);
+  });
+  if (n > 1) {
+    const vIns = edit.segments.map((_, i) => `[v${i}]`).join("");
+    chains.push(`${vIns}concat=n=${n}:v=1:a=0[${videoLabel}]`);
+    if (audioLabel) {
+      const aIns = edit.segments.map((_, i) => `[a${i}]`).join("");
+      chains.push(`${aIns}concat=n=${n}:v=0:a=1[${audioLabel}]`);
     }
   }
 

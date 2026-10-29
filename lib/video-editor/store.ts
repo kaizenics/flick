@@ -11,6 +11,7 @@ import type {
   VideoMetadata,
   VideoSource,
 } from "@/lib/video-editor/types";
+import { coerceSegments } from "@/lib/video-editor/segments";
 
 export const VIDEO_EDITOR_DIR = join(process.cwd(), "data", "video-editor");
 export const VIDEO_EDITOR_PROJECTS_DIR = join(VIDEO_EDITOR_DIR, "projects");
@@ -67,7 +68,13 @@ async function readProjects(): Promise<VideoEditorProject[]> {
   try {
     const raw = await readFile(PROJECT_INDEX_FILE, "utf8");
     const parsed = JSON.parse(raw) as ProjectsFile;
-    return Array.isArray(parsed.items) ? parsed.items : [];
+    if (!Array.isArray(parsed.items)) return [];
+    // Projects saved before multi-segment editing hold trim/cut fields; read them as segments.
+    return parsed.items.map((p) => {
+      if (!p.timeline) return p;
+      const segments = coerceSegments(p.timeline);
+      return { ...p, timeline: segments ? { segments } : null };
+    });
   } catch {
     return [];
   }
@@ -122,12 +129,7 @@ function nowIso(): string {
 }
 
 function defaultTimelineForSource(meta: VideoMetadata): EditTimeline {
-  return {
-    trimStart: 0,
-    trimEnd: meta.duration,
-    cutStart: null,
-    cutEnd: null,
-  };
+  return { segments: [{ start: 0, end: meta.duration }] };
 }
 
 function defaultBlurForSource(meta: VideoMetadata): BlurFilter {

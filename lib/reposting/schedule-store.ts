@@ -1,4 +1,4 @@
-import { mkdir, appendFile, readFile, writeFile } from "node:fs/promises";
+import { mkdir, appendFile, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { accountDir } from "./accounts-store";
 
@@ -20,13 +20,26 @@ function scheduleFile(accountId: string): string {
   return join(accountDir(accountId), "schedule.jsonl");
 }
 
+// Runs append while the status refresh rewrites the file; serialise per account
+// so a rewrite never drops a line appended mid-way. shortcut: in-process lock,
+// assumes one Node process (true for the single-user VPS/local setup).
+const locks = new Map<string, Promise<unknown>>();
+function withLock<T>(accountId: string, fn: () => Promise<T>): Promise<T> {
+  const prev = locks.get(accountId) ?? Promise.resolve();
+  const next = prev.then(fn, fn);
+  locks.set(accountId, next.catch(() => {}));
+  return next;
+}
+
 export async function appendScheduleRecord(
   accountId: string,
   rec: ScheduledRecord,
 ): Promise<void> {
   const file = scheduleFile(accountId);
-  await mkdir(dirname(file), { recursive: true });
-  await appendFile(file, JSON.stringify(rec) + "\n", "utf8");
+  await withLock(accountId, async () => {
+    await mkdir(dirname(file), { recursive: true });
+    await appendFile(file, JSON.stringify(rec) + "\n", "utf8");
+  });
 }
 
 export async function listScheduleRecords(
@@ -49,11 +62,16 @@ export async function updateScheduleRecord(
   fbPostId: string,
   patch: Partial<ScheduledRecord>,
 ): Promise<ScheduledRecord | null> {
-  const records = await listScheduleRecords(accountId);
-  const idx = records.findIndex((r) => r.fbPostId === fbPostId);
-  if (idx === -1) return null;
-  records[idx] = { ...records[idx], ...patch };
-  const text = records.map((r) => JSON.stringify(r)).join("\n") + "\n";
-  await writeFile(scheduleFile(accountId), text, "utf8");
-  return records[idx];
+  return withLock(accountId, async () => {
+    const records = await listScheduleRecords(accountId);
+    const idx = records.findIndex((r) => r.fbPostId === fbPostId);
+    if (idx === -1) return null;
+    records[idx] = { ...records[idx], ...patch };
+    const text = records.map((r) => JSON.stringify(r)).join("\n") + "\n";
+    // Write then rename so a crash mid-write can't truncate the history.
+    const file = scheduleFile(accountId);
+    await writeFile(`${file}.tmp`, text, "utf8");
+    await rename(`${file}.tmp`, file);
+    return records[idx];
+  });
 }

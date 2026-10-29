@@ -1139,11 +1139,13 @@ export function RepostingPanel() {
       setHistory([]);
       setItems([blankRow()]);
       setPreflightItems({});
+      setRunSteps({});
       setCoachReport(null);
       setPageId("");
       setFbTokenDraft("");
       return;
     }
+    setRunSteps({});
     localStorage.setItem("reposting:activeId", activeId);
     void refreshAccountConfig(activeId);
     void refreshHistory(activeId);
@@ -1231,7 +1233,7 @@ export function RepostingPanel() {
     const failed = runEntries.some((e) => e.step === "error" && e.at === stage);
     const inside = runEntries.some((e) => e.step === stage);
     return {
-      status: failed ? "error" : inside && running ? "active" : passed > 0 && passed >= runTotal ? "done" : passed > 0 ? "active" : "idle",
+      status: failed ? "error" : inside && running ? "active" : passed > 0 && (passed >= runTotal || !running) ? "done" : passed > 0 ? "active" : "idle",
       progress: `${passed}/${runTotal}`,
     };
   };
