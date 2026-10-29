@@ -75,34 +75,35 @@ export function AppSidebar({
 
   return (
     <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader>
+      <SidebarHeader className="h-16 justify-center border-b border-sidebar-border py-0">
         <div className="flex items-center gap-2 group-data-[collapsible=icon]:hidden">
           <Link
             href="/"
-            className="flex min-w-0 flex-1 items-center gap-2 rounded-md p-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg p-2 text-white hover:bg-sidebar-accent"
           >
-            <div className="flex aspect-square size-8 shrink-0 items-center justify-center rounded-lg bg-foreground text-background">
+            {/* Mark: an L whose foot lifts into an arrow, the one place the data hue sits in chrome. */}
+            <div className="flex aspect-square size-8 shrink-0 items-center justify-center rounded-[9px] bg-data text-black">
               <svg
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="2.5"
+                strokeWidth="2.6"
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 className="size-4"
                 aria-hidden
               >
-                <path d="M5 19V5" />
-                <path d="M5 5h9a4 4 0 0 1 0 8H5" />
-                <path d="M14 13l5 6" />
+                <path d="M6 4v15h7" />
+                <path d="M13 19l5-6" />
+                <path d="M14 13h4v4" />
               </svg>
             </div>
             <div className="flex min-w-0 flex-col gap-0.5 leading-none">
               <span className="truncate font-semibold tracking-tight">
                 Lifty
               </span>
-              <span className="truncate text-xs text-muted-foreground">
-                Automation suite
+              <span className="truncate text-xs text-faint">
+                Local automation
               </span>
             </div>
           </Link>
@@ -115,7 +116,7 @@ export function AppSidebar({
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>General</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-faint">General</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navMain.map((item) => {
@@ -139,7 +140,7 @@ export function AppSidebar({
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Tools</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-faint">Tools</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navTools.map((item) => {
@@ -177,7 +178,7 @@ export function AppSidebar({
               tooltip={displayName}
               render={<Link href="/profile" />}
             >
-              <div className="flex aspect-square size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-card text-xs font-medium">
+              <div className="flex aspect-square size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-raised text-[11px] font-medium text-white">
                 SYS
               </div>
               <div className="flex min-w-0 flex-col gap-0.5 text-left leading-none group-data-[collapsible=icon]:hidden">

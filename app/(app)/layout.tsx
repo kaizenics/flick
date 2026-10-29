@@ -10,9 +10,11 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   return (
-    <SidebarProvider>
+    <SidebarProvider
+      style={{ "--sidebar-width": "14rem" } as React.CSSProperties}
+    >
       <AppSidebar />
-      <SidebarInset>{children}</SidebarInset>
+      <SidebarInset className="min-w-0">{children}</SidebarInset>
     </SidebarProvider>
   );
 }
