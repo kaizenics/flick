@@ -1,17 +1,23 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { SidebarTrigger } from "@/components/ui/sidebar";
+import type * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -35,14 +41,10 @@ import {
   Plus,
   Trash2,
   Send,
-  KeyRound,
   Eye,
   EyeOff,
   CircleCheck,
-  Clock,
-  CircleX,
   Pencil,
-  ArrowRight,
   Link as LinkIcon,
   Unplug,
   Square,
@@ -50,8 +52,18 @@ import {
   RefreshCcw,
   Sparkles,
   Brain,
+  Check,
+  ChevronsUpDown,
+  Loader2,
+  MessageSquarePlus,
+  Settings2,
+  FileSearch,
+  Upload,
 } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import { AppTopbar } from "@/components/dashboard/app-topbar";
+import { RepostPipeline, type PipelineStage, type StageStatus } from "@/components/dashboard/RepostPipeline";
 import { YoutubeIcon, InstagramIcon, FacebookIcon, TiktokIcon } from "@/components/icons/brand";
 
 type ConfigField = { set: boolean; value: string | null; masked: string | null };
@@ -246,6 +258,153 @@ const blankRow = (offset = 20): QueueItem => ({
   publishNow: false,
 });
 
+const FLOW_SOURCE: Record<
+  Flow,
+  { noun: string; placeholder: string; icon: React.ReactNode; destination: string }
+> = {
+  "yt-to-fb": {
+    noun: "YouTube Short",
+    placeholder: "https://www.youtube.com/shorts/…",
+    icon: <YoutubeIcon size={16} className="text-[#ff0000]" />,
+    destination: "Facebook Page",
+  },
+  "tt-to-fb": {
+    noun: "TikTok video",
+    placeholder: "https://www.tiktok.com/@user/video/…",
+    icon: <TiktokIcon size={16} />,
+    destination: "Facebook Page",
+  },
+  "ig-to-yt": {
+    noun: "Instagram Reel",
+    placeholder: "https://www.instagram.com/reel/…",
+    icon: <InstagramIcon size={16} className="text-[#e4405f]" />,
+    destination: "YouTube channel",
+  },
+};
+
+const STATUS_BADGE: Record<string, { variant: "positive" | "warning" | "negative" | "neutral"; label: string }> = {
+  posted: { variant: "positive", label: "Posted" },
+  scheduled: { variant: "neutral", label: "Scheduled" },
+  failed: { variant: "negative", label: "Failed" },
+  deleted: { variant: "negative", label: "Deleted" },
+};
+
+function StatusBadge({ status }: { status: string }) {
+  const s = STATUS_BADGE[status] ?? { variant: "neutral" as const, label: status };
+  return (
+    <Badge variant={s.variant} className="capitalize">
+      {s.label}
+    </Badge>
+  );
+}
+
+const fmtWhen = (iso: string) =>
+  new Date(iso).toLocaleString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+function youtubeThumb(url: string): string | null {
+  const m = canonicalYoutubeUrl(url).match(/[?&]v=([A-Za-z0-9_-]{11})/);
+  return m ? `https://i.ytimg.com/vi/${m[1]}/mqdefault.jpg` : null;
+}
+
+function SecretField({
+  id,
+  label,
+  value,
+  onChange,
+  placeholder,
+  isSet,
+  onClear,
+  clearLabel = "Clear",
+  disabled,
+  secret = true,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  isSet?: boolean;
+  onClear?: () => void;
+  clearLabel?: string;
+  disabled?: boolean;
+  secret?: boolean;
+}) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <Label htmlFor={id}>{label}</Label>
+        {isSet && onClear && (
+          <button
+            type="button"
+            onClick={onClear}
+            className="cursor-pointer text-xs text-muted-foreground transition-colors hover:text-white"
+          >
+            {clearLabel}
+          </button>
+        )}
+      </div>
+      <div className="relative">
+        <Input
+          id={id}
+          type={secret && !show ? "password" : "text"}
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
+          className={secret ? "pr-10" : undefined}
+          autoComplete="off"
+        />
+        {secret && (
+          <button
+            type="button"
+            className="absolute top-1/2 right-1 flex size-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-white"
+            onClick={() => setShow((v) => !v)}
+            aria-label={show ? `Hide ${label}` : `Show ${label}`}
+          >
+            {show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SettingsRow({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="grid gap-4 border-b border-border py-8 first:pt-2 last:border-b-0 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:gap-10">
+      <div className="flex flex-col gap-1.5 lg:pt-2">
+        <h2 className="text-base font-medium">{title}</h2>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+      <div className="flex flex-col gap-5 rounded-2xl bg-card p-5">{children}</div>
+    </section>
+  );
+}
+
+function SectionHeading({ children, action }: { children: React.ReactNode; action?: React.ReactNode }) {
+  return (
+    <div className="flex min-h-8 items-center justify-between gap-3">
+      <h2 className="text-base font-medium">{children}</h2>
+      {action}
+    </div>
+  );
+}
+
 export function RepostingPanel() {
   // accounts
   const [accounts, setAccounts] = useState<RepostingAccount[]>([]);
@@ -257,15 +416,12 @@ export function RepostingPanel() {
   const [youtubeKeyDraft, setYoutubeKeyDraft] = useState("");
   const [openrouterKeyDraft, setOpenrouterKeyDraft] = useState("");
   const [openrouterModelDraft, setOpenrouterModelDraft] = useState("");
-  const [showYoutube, setShowYoutube] = useState(false);
-  const [showOpenrouter, setShowOpenrouter] = useState(false);
 
   // per-account config
   const [accountConfig, setAccountConfig] = useState<AccountConfigMasked | null>(null);
   const [savingAccount, setSavingAccount] = useState(false);
   const [pageId, setPageId] = useState("");
   const [fbTokenDraft, setFbTokenDraft] = useState("");
-  const [showFb, setShowFb] = useState(false);
 
   // dialogs
   const [nameDialog, setNameDialog] = useState<
@@ -274,7 +430,14 @@ export function RepostingPanel() {
     | null
   >(null);
   const [deleteDialogId, setDeleteDialogId] = useState<string | null>(null);
-  const [switchOpen, setSwitchOpen] = useState(false);
+  const [tab, setTab] = useState<"queue" | "history" | "coach" | "settings">("queue");
+  const [pasteDraft, setPasteDraft] = useState("");
+  // Clock for "upcoming" and the 7-day strip; ticks each minute.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(t);
+  }, []);
 
   // queue & run
   const [items, setItems] = useState<QueueItem[]>([blankRow()]);
@@ -283,6 +446,8 @@ export function RepostingPanel() {
   const [downloadingRow, setDownloadingRow] = useState<number | null>(null);
   const runAbortRef = useRef<AbortController | null>(null);
   const [log, setLog] = useState<string[]>([]);
+  // Per queue position (1-based idx from the stream): last step seen and the stage it failed in.
+  const [runSteps, setRunSteps] = useState<Record<number, { step: string; at: string }>>({});
   const [history, setHistory] = useState<ScheduledRecord[]>([]);
   const [preflightItems, setPreflightItems] = useState<Record<string, PreflightItemState>>({});
   const [runningPreflight, setRunningPreflight] = useState(false);
@@ -755,6 +920,7 @@ export function RepostingPanel() {
     }
 
     setLog([]);
+    setRunSteps({});
     setRunning(true);
     append(`Submitting ${valid.length} item(s)…`);
 
@@ -793,6 +959,15 @@ export function RepostingPanel() {
               caption?: string;
               fbPostId?: string;
             };
+            if (Number.isInteger(evt.idx) && evt.idx >= 1) {
+              setRunSteps((prev) => ({
+                ...prev,
+                [evt.idx]: {
+                  step: evt.step,
+                  at: evt.step === "error" ? (prev[evt.idx]?.at ?? "metadata") : evt.step,
+                },
+              }));
+            }
             if (evt.step === "done" && Number.isInteger(evt.idx) && evt.idx >= 1) {
               completed.add(evt.idx - 1);
             }
@@ -1014,791 +1189,956 @@ export function RepostingPanel() {
         )
       : [];
 
+  // ---- derived view state ----
+  const flow = activeAccount?.flow ?? "yt-to-fb";
+  const source = FLOW_SOURCE[flow];
+  const needsFbPage = flow === "yt-to-fb" || flow === "tt-to-fb";
+  const destinationReady = needsFbPage
+    ? Boolean(accountConfig?.fbPageAccessToken.set && pageId.trim())
+    : Boolean(accountConfig?.youtube?.connected);
+  const filledItems = items.filter((it) => it.url.trim().length > 0);
+  const captionedCount =
+    flow === "yt-to-fb"
+      ? ytQueueUrls.filter((u) => preflightItems[u]?.selectedVariantId).length
+      : filledItems.length;
+  const upcoming = history
+    .filter((r) => r.status === "scheduled" && new Date(r.scheduledAt).getTime() > now)
+    .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(now);
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + i);
+    const key = d.toDateString();
+    return {
+      date: d,
+      scheduled: upcoming.filter((r) => new Date(r.scheduledAt).toDateString() === key).length,
+      queued: filledItems.filter(
+        (it) => !it.publishNow && new Date(it.scheduledAt).toDateString() === key,
+      ).length,
+    };
+  });
+  const weekScheduled = days.reduce((n, d) => n + d.scheduled, 0);
+  const weekQueued = days.reduce((n, d) => n + d.queued, 0);
+
+  // Pipeline canvas: each stage's state comes from the live schedule stream.
+  const STEP_ORDER = ["metadata", "download", "caption", "upload", "done"];
+  const runEntries = Object.values(runSteps);
+  const runTotal = running ? filledItems.length : runEntries.length;
+  const stageState = (stage: string): { status: StageStatus; progress?: string } => {
+    if (runEntries.length === 0) return { status: "idle" };
+    const k = STEP_ORDER.indexOf(stage);
+    const passed = runEntries.filter((e) => e.step !== "error" && STEP_ORDER.indexOf(e.step) > k).length;
+    const failed = runEntries.some((e) => e.step === "error" && e.at === stage);
+    const inside = runEntries.some((e) => e.step === stage);
+    return {
+      status: failed ? "error" : inside && running ? "active" : passed > 0 && passed >= runTotal ? "done" : passed > 0 ? "active" : "idle",
+      progress: `${passed}/${runTotal}`,
+    };
+  };
+  const doneCount = runEntries.filter((e) => e.step === "done").length;
+  const destinationName = needsFbPage
+    ? pageId.trim()
+      ? `Page ${pageId.trim()}`
+      : "No Page set"
+    : accountConfig?.youtube?.connected
+      ? (accountConfig.youtube.channelTitle ?? "YouTube channel")
+      : "Not connected";
+  const pipelineStages: PipelineStage[] = [
+    {
+      id: "source",
+      label: "Source",
+      detail: `${filledItems.length} ${source.noun}${filledItems.length === 1 ? "" : "s"}`,
+      icon: source.icon,
+      status: filledItems.length > 0 ? "done" : "idle",
+    },
+    { id: "metadata", label: "Read details", detail: "Title, channel, length", icon: <FileSearch className="size-4" />, ...stageState("metadata") },
+    { id: "download", label: "Download", detail: "yt-dlp, best mp4", icon: <Download className="size-4" />, ...stageState("download") },
+    {
+      id: "caption",
+      label: "Caption",
+      detail:
+        flow === "yt-to-fb"
+          ? `${captionedCount} of ${ytQueueUrls.length} picked`
+          : flow === "tt-to-fb"
+            ? "Yours, or AI-written"
+            : "From the Reel",
+      icon: <Sparkles className="size-4" />,
+      ...stageState("caption"),
+    },
+    {
+      id: "upload",
+      label: needsFbPage ? "Schedule" : "Upload",
+      detail: needsFbPage ? "Facebook Graph API" : "YouTube Data API",
+      icon: <Upload className="size-4" />,
+      ...stageState("upload"),
+    },
+    {
+      id: "dest",
+      label: source.destination === "Facebook Page" ? "Facebook" : "YouTube",
+      detail: destinationName,
+      icon: needsFbPage ? <FacebookIcon size={16} className="text-[#1877f2]" /> : <YoutubeIcon size={16} className="text-[#ff0000]" />,
+      status: !destinationReady ? "error" : doneCount > 0 ? "done" : "idle",
+      progress: runEntries.length > 0 ? `${doneCount}/${runTotal}` : undefined,
+    },
+  ];
+
+  const addPastedUrls = () => {
+    const urls = pasteDraft
+      .split(/[\s,]+/)
+      .map((u) => u.trim())
+      .filter((u) => /^https?:\/\//i.test(u) || /^[A-Za-z0-9_-]{11}$/.test(u));
+    if (urls.length === 0) {
+      toast.error("No links found. Paste one URL per line.");
+      return;
+    }
+    setItems((arr) => {
+      const next = arr.filter((it) => it.url.trim().length > 0);
+      for (const url of urls) {
+        const last = next.at(-1);
+        next.push({
+          ...blankRow(),
+          url,
+          scheduledAt: (last && nextDayFrom(last.scheduledAt)) ?? defaultScheduledAt(20),
+        });
+      }
+      return next;
+    });
+    setPasteDraft("");
+    toast.success(`Added ${urls.length} link${urls.length === 1 ? "" : "s"}, one per day`);
+  };
+
+  const showCoach = flow === "yt-to-fb";
+  const currentTab = !showCoach && tab === "coach" ? "queue" : tab;
+
+  const finding = !activeAccount
+    ? null
+    : !destinationReady
+      ? needsFbPage
+        ? "Facebook Page token or Page ID missing. Nothing can be scheduled until it is set."
+        : "YouTube is not connected. Nothing can be uploaded until it is."
+      : upcoming.length > 0
+        ? `${upcoming.length} scheduled · next goes out ${fmtWhen(upcoming[0].scheduledAt)}`
+        : filledItems.length > 0
+          ? `${filledItems.length} in the queue, none sent yet`
+          : "Nothing scheduled. Paste links below to start a queue.";
+
   return (
     <>
-      <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
-        <SidebarTrigger className="-ml-1" />
-        <div className="flex items-center gap-2">
-          <Repeat2 className="size-4" />
-          <h1 className="text-sm font-medium">Reposting</h1>
-        </div>
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          {activeAccount ? (
-            <div className="inline-flex items-center gap-2 rounded-md border border-primary bg-primary/10 px-2.5 py-1 text-xs">
-              <FlowBadge flow={activeAccount.flow} />
-              <span className="font-medium">{activeAccount.name}</span>
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={openRenameDialog}
-                disabled={running}
-                title="Rename"
-                className="size-5"
-              >
-                <Pencil className="size-3" />
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() => setDeleteDialogId(activeId)}
-                disabled={running}
-                title="Delete"
-                className="size-5"
-              >
-                <Trash2 className="size-3" />
-              </Button>
-            </div>
-          ) : (
-            <span className="text-xs text-muted-foreground">No account selected</span>
-          )}
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setSwitchOpen(true)}
-            disabled={running || accounts.length === 0}
+      <AppTopbar title="Reposting" icon={Repeat2}>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button variant="ghost" className="max-w-[16rem] text-white" disabled={running} />
+            }
           >
-            <ArrowRight className="size-4" /> Switch account
-          </Button>
-          <Button size="sm" variant="outline" onClick={openCreateDialog} disabled={running}>
-            <Plus className="size-4" /> Add Account
-          </Button>
-        </div>
-      </header>
+            {activeAccount ? (
+              <>
+                <FlowBadge flow={activeAccount.flow} />
+                <span className="truncate">{activeAccount.name}</span>
+              </>
+            ) : (
+              <span>Choose account</span>
+            )}
+            <ChevronsUpDown data-icon="inline-end" className="text-muted-foreground" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-72">
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Reposting accounts</DropdownMenuLabel>
+              {[...accounts]
+                .sort((a, b) =>
+                  a.flow === b.flow ? a.name.localeCompare(b.name) : a.flow.localeCompare(b.flow),
+                )
+                .map((a) => (
+                  <DropdownMenuItem key={a.id} onClick={() => setActiveId(a.id)} className="py-2">
+                    <FlowBadge flow={a.flow} />
+                    <span className="flex min-w-0 flex-col">
+                      <span className="truncate">{a.name}</span>
+                      <span className="text-xs text-muted-foreground">{FLOW_LABELS[a.flow]}</span>
+                    </span>
+                    {a.id === activeId && <Check className="ml-auto" />}
+                  </DropdownMenuItem>
+                ))}
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuItem onClick={openCreateDialog}>
+                <Plus /> New account
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </AppTopbar>
 
-      <main className="flex-1 space-y-6 p-6">
-        {/* Shared settings */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <KeyRound className="size-4" /> Shared settings
-            </CardTitle>
-            <CardDescription>
-              Used by every reposting account. Stored in <code>data/reposting/shared.json</code>.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid gap-3 md:grid-cols-3">
-              <div>
-                <Label className="text-xs">YouTube API key</Label>
-                <div className="relative">
-                  <Input
-                    type={showYoutube ? "text" : "password"}
-                    placeholder={
-                      sharedConfig?.youtubeApiKey.set
-                        ? sharedConfig.youtubeApiKey.masked ?? ""
-                        : "AIza…"
-                    }
-                    value={youtubeKeyDraft}
-                    onChange={(e) => setYoutubeKeyDraft(e.target.value)}
-                    disabled={savingShared}
-                    className="pr-9"
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    onClick={() => setShowYoutube((v) => !v)}
-                    tabIndex={-1}
-                  >
-                    {showYoutube ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                  </button>
-                </div>
-                {sharedConfig?.youtubeApiKey.set && (
-                  <button
-                    type="button"
-                    className="mt-1 text-xs text-muted-foreground underline"
-                    onClick={() => clearSharedKey("youtubeApiKey")}
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
-              <div>
-                <Label className="text-xs">OpenRouter API key</Label>
-                <div className="relative">
-                  <Input
-                    type={showOpenrouter ? "text" : "password"}
-                    placeholder={
-                      sharedConfig?.openrouterApiKey.set
-                        ? sharedConfig.openrouterApiKey.masked ?? ""
-                        : "sk-or-v1-…"
-                    }
-                    value={openrouterKeyDraft}
-                    onChange={(e) => setOpenrouterKeyDraft(e.target.value)}
-                    disabled={savingShared}
-                    className="pr-9"
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    onClick={() => setShowOpenrouter((v) => !v)}
-                    tabIndex={-1}
-                  >
-                    {showOpenrouter ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                  </button>
-                </div>
-                {sharedConfig?.openrouterApiKey.set && (
-                  <button
-                    type="button"
-                    className="mt-1 text-xs text-muted-foreground underline"
-                    onClick={() => clearSharedKey("openrouterApiKey")}
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
-              <div>
-                <Label className="text-xs">OpenRouter model</Label>
-                <Input
-                  type="text"
-                  placeholder={
-                    sharedConfig?.openrouterModel.set
-                      ? sharedConfig.openrouterModel.value ?? ""
-                      : "anthropic/claude-haiku-4.5"
+      <div className="flex flex-1 flex-col gap-6 px-4 pt-7 pb-16 md:px-7">
+        {!activeAccount ? (
+          <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 pt-6">
+            <div className="flex flex-col gap-2">
+              <h1 className="text-xl font-semibold">Reposting</h1>
+              <p className="text-sm text-muted-foreground">
+                An account is one source-to-destination pipe with its own queue, token and
+                history. Pick the pipe to create the first one.
+              </p>
+            </div>
+            <div className="grid gap-3.5 sm:grid-cols-3">
+              {(["yt-to-fb", "tt-to-fb", "ig-to-yt"] as const).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() =>
+                    setNameDialog({ mode: "create", value: `Account ${accounts.length + 1}`, flow: f })
                   }
-                  value={openrouterModelDraft}
-                  onChange={(e) => setOpenrouterModelDraft(e.target.value)}
-                  disabled={savingShared}
-                />
-                {sharedConfig?.openrouterModel.set && (
-                  <button
-                    type="button"
-                    className="mt-1 text-xs text-muted-foreground underline"
-                    onClick={() => clearSharedKey("openrouterModel")}
+                  className="flex cursor-pointer flex-col items-start gap-6 rounded-[20px] bg-card p-5 text-left transition-colors hover:bg-raised focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                >
+                  <FlowBadge flow={f} size={20} />
+                  <span className="flex flex-col gap-1">
+                    <span className="font-medium">{FLOW_LABELS[f]}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {FLOW_SOURCE[f].noun}s to a {FLOW_SOURCE[f].destination}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Title row: the account is the object; the finding says what needs doing. */}
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div className="flex min-w-0 flex-col gap-1.5">
+                <div className="flex items-center gap-2.5">
+                  <FlowBadge flow={activeAccount.flow} size={16} />
+                  <h1 className="truncate text-xl font-semibold">{activeAccount.name}</h1>
+                </div>
+                <p
+                  className={cn(
+                    "text-sm",
+                    destinationReady ? "text-muted-foreground" : "text-warning",
+                  )}
+                >
+                  {finding}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {running ? (
+                  <Button variant="destructive" onClick={stopRun}>
+                    <Square data-icon="inline-start" /> Stop run
+                  </Button>
+                ) : !destinationReady ? (
+                  <Button onClick={() => setTab("settings")}>
+                    <Settings2 data-icon="inline-start" /> Finish setup
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => void run()}
+                    disabled={downloading || filledItems.length === 0}
                   >
-                    Clear (revert to default)
-                  </button>
+                    <Send data-icon="inline-start" />
+                    Schedule {filledItems.length > 0 ? filledItems.length : ""}
+                  </Button>
                 )}
               </div>
             </div>
-            <Button onClick={saveShared} disabled={savingShared}>
-              {savingShared ? "Saving…" : "Save shared settings"}
-            </Button>
-          </CardContent>
-        </Card>
 
-        {/* Per-account: destination + queue + history */}
-        {activeAccount && (
-          <>
-            {activeAccount.flow === "yt-to-fb" || activeAccount.flow === "tt-to-fb" ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <FacebookIcon size={16} className="text-[#1877f2]" />
-                    {activeAccount.name} — Facebook destination
-                  </CardTitle>
-                  <CardDescription>
-                    Page Access Token + default Page ID for this account.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <div>
-                      <Label className="text-xs">Facebook Page Access Token</Label>
-                      <div className="relative">
-                        <Input
-                          type={showFb ? "text" : "password"}
-                          placeholder={
-                            accountConfig?.fbPageAccessToken.set
-                              ? accountConfig.fbPageAccessToken.masked ?? ""
-                              : "EAAG…"
-                          }
-                          value={fbTokenDraft}
-                          onChange={(e) => setFbTokenDraft(e.target.value)}
-                          disabled={savingAccount}
-                          className="pr-9"
-                        />
-                        <button
-                          type="button"
-                          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                          onClick={() => setShowFb((v) => !v)}
-                          tabIndex={-1}
-                        >
-                          {showFb ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                        </button>
-                      </div>
-                      {accountConfig?.fbPageAccessToken.set && (
-                        <button
-                          type="button"
-                          className="mt-1 text-xs text-muted-foreground underline"
-                          onClick={() => clearAccountKey("fbPageAccessToken")}
-                        >
-                          Clear
-                        </button>
-                      )}
-                    </div>
-                    <div>
-                      <Label className="text-xs">Page ID</Label>
-                      <Input
-                        placeholder="1234567890"
-                        value={pageId}
-                        onChange={(e) => setPageId(e.target.value)}
-                        disabled={running}
-                      />
-                      {accountConfig?.defaultPageId.set && (
-                        <button
-                          type="button"
-                          className="mt-1 text-xs text-muted-foreground underline"
-                          onClick={() => clearAccountKey("defaultPageId")}
-                        >
-                          Clear saved Page ID
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  <Button onClick={saveAccountConfig} disabled={savingAccount}>
-                    {savingAccount ? "Saving…" : "Save account settings"}
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <YoutubeIcon size={16} className="text-[#ff0000]" />
-                    {activeAccount.name} — YouTube destination
-                  </CardTitle>
-                  <CardDescription>
-                    Connect this account to a Google account with YouTube upload permission.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {accountConfig?.youtube?.connected ? (
-                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3">
-                      <div className="space-y-0.5">
-                        <div className="flex items-center gap-2 text-sm font-medium">
-                          <CircleCheck className="size-4 text-green-500" />
-                          Connected to{" "}
-                          {accountConfig.youtube.channelTitle ?? "(unknown channel)"}
-                        </div>
-                        {accountConfig.youtube.channelId && (
-                          <div className="text-xs text-muted-foreground">
-                            channel id: {accountConfig.youtube.channelId}
-                          </div>
-                        )}
-                        <div className="text-xs text-muted-foreground">
-                          since{" "}
-                          {new Date(accountConfig.youtube.connectedAt).toLocaleString()}
-                        </div>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => void disconnectYoutube()}
-                      >
-                        <Unplug className="size-4" /> Disconnect
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3">
-                      <div className="text-sm text-muted-foreground">
-                        Not connected. Click connect to authorize YouTube uploads via Google.
-                      </div>
-                      <a
-                        href={`/api/reposting/oauth/youtube/start?accountId=${activeAccount.id}`}
-                      >
-                        <Button size="sm">
-                          <LinkIcon className="size-4" /> Connect YouTube
-                        </Button>
-                      </a>
-                    </div>
+            <Tabs value={currentTab} onValueChange={(v) => setTab(v as typeof tab)} className="gap-6">
+              <div className="-mx-4 overflow-x-auto border-b border-border px-4 md:-mx-7 md:px-7">
+                <TabsList variant="line" className="h-10 gap-5 p-0">
+                  <TabsTrigger value="queue" className="flex-none px-0">
+                    Queue
+                    <span className="num text-muted-foreground">{filledItems.length}</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="history" className="flex-none px-0">
+                    History
+                    <span className="num text-muted-foreground">{history.length}</span>
+                  </TabsTrigger>
+                  {showCoach && (
+                    <TabsTrigger value="coach" className="flex-none px-0">
+                      Coach
+                    </TabsTrigger>
                   )}
-                  <p className="text-xs text-muted-foreground">
-                    Heads up: YouTube&apos;s default API quota allows ~6 uploads/day per
-                    Google project.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
+                  <TabsTrigger value="settings" className="flex-none px-0">
+                    Settings
+                    {!destinationReady && (
+                      <span className="size-1.5 rounded-full bg-warning" aria-label="needs setup" />
+                    )}
+                  </TabsTrigger>
+                </TabsList>
+              </div>
 
-            {activeAccount.flow === "yt-to-fb" && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Sparkles className="size-4 text-indigo-500" />
-                    AI Copilot
-                  </CardTitle>
-                  <CardDescription>
-                    Preflight captions with 3 variants, then pick the one you want before scheduling.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button
-                      size="sm"
-                      onClick={() => void runPreflight()}
-                      disabled={runningPreflight || running || ytQueueUrls.length === 0}
-                    >
-                      <Sparkles className="size-4" />{" "}
-                      {runningPreflight ? "Running preflight…" : "Run AI preflight"}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => void refreshPreflight(activeAccount.id)}
-                      disabled={runningPreflight || running}
-                    >
-                      <RefreshCcw className="size-4" /> Refresh preflight
-                    </Button>
-                  </div>
-
-                  {ytQueueUrls.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      Add queue URLs first, then run AI preflight.
-                    </p>
-                  ) : (
-                    <div className="max-h-[360px] space-y-3 overflow-y-auto pr-1">
-                      {ytQueueUrls.map((url) => {
-                        const pf = preflightItems[url];
-                        if (!pf) {
-                          return (
-                            <div key={url} className="rounded-md border p-3 text-sm">
-                              <div className="font-medium">{url}</div>
-                              <div className="mt-1 text-xs text-muted-foreground">
-                                No preflight record yet.
-                              </div>
-                            </div>
-                          );
-                        }
-                        return (
-                          <div key={url} className="rounded-md border p-3 text-sm">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <div className="min-w-0">
-                                <div className="truncate font-medium">{pf.title || url}</div>
-                                <div className="truncate text-xs text-muted-foreground">{url}</div>
-                              </div>
-                            </div>
-
-                            <div className="mt-2 space-y-2">
-                              {pf.variants.map((variant) => {
-                                const selected = pf.selectedVariantId === variant.id;
-                                return (
-                                  <div
-                                    key={variant.id}
-                                    className={`rounded-md border p-2 ${
-                                      selected ? "border-primary bg-primary/5" : "border-border"
-                                    }`}
-                                  >
-                                    <div className="flex flex-wrap items-center justify-between gap-2">
-                                      <div className="text-xs font-medium">
-                                        {variant.hookType || "general"}
-                                      </div>
-                                    </div>
-                                    <div className="mt-1 text-xs">{variant.text}</div>
-                                    <div className="mt-2 flex flex-wrap gap-2">
-                                      <Button
-                                        size="sm"
-                                        variant={selected ? "default" : "outline"}
-                                        disabled={running || approvingPreflight === url}
-                                        onClick={() =>
-                                          void approvePreflight({
-                                            url,
-                                            variantId: variant.id,
-                                          })
-                                        }
-                                      >
-                                        {selected ? "Selected" : "Use caption"}
-                                      </Button>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
-            {activeAccount.flow === "yt-to-fb" && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Brain className="size-4 text-cyan-600" />
-                    Weekly AI Coach
-                  </CardTitle>
-                  <CardDescription>
-                    Rolling 7-day insights based on local reposting history and candidate metadata.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button
-                      size="sm"
-                      onClick={() => void refreshCoachNow()}
-                      disabled={runningCoach || running}
-                    >
-                      <Brain className="size-4" />{" "}
-                      {runningCoach ? "Refreshing…" : "Refresh insights"}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => void refreshCoach(activeAccount.id)}
-                      disabled={runningCoach || running}
-                    >
-                      <RefreshCcw className="size-4" /> Load cached report
-                    </Button>
-                  </div>
-
-                  {!coachReport ? (
-                    <p className="text-sm text-muted-foreground">
-                      No AI coach report yet. Click Refresh insights.
-                    </p>
-                  ) : (
-                    <div className="space-y-3 text-sm">
-                      <div className="text-xs text-muted-foreground">
-                        Window: {new Date(coachReport.windowStart).toLocaleString()} →{" "}
-                        {new Date(coachReport.windowEnd).toLocaleString()} · generated{" "}
-                        {new Date(coachReport.generatedAt).toLocaleString()}
-                      </div>
-                      <div className="grid gap-2 text-xs md:grid-cols-3">
-                        <div className="rounded-md border p-2">
-                          total {coachReport.metrics.total} · posted {coachReport.metrics.posted}
-                        </div>
-                        <div className="rounded-md border p-2">
-                          failed {coachReport.metrics.failed} · scheduled {coachReport.metrics.scheduled}
-                        </div>
-                        <div className="rounded-md border p-2">
-                          avg caption {coachReport.metrics.avgCaptionLength} chars · hashtags{" "}
-                          {coachReport.metrics.avgHashtags}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="mb-1 text-xs font-medium">Findings</div>
-                        {coachReport.findings.map((line, i) => (
-                          <div key={i} className="text-xs text-muted-foreground">
-                            • {line}
-                          </div>
-                        ))}
-                      </div>
-                      <div>
-                        <div className="mb-1 text-xs font-medium">Recommendations</div>
-                        {coachReport.recommendations.map((line, i) => (
-                          <div key={i} className="text-xs text-muted-foreground">
-                            • {line}
-                          </div>
-                        ))}
-                      </div>
-                      <div>
-                        <div className="mb-1 text-xs font-medium">Next 7-day playbook</div>
-                        {coachReport.playbook.map((line, i) => (
-                          <div key={i} className="text-xs text-muted-foreground">
-                            • {line}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <FlowBadge flow={activeAccount.flow} />
-                  Queue
-                </CardTitle>
-                <CardDescription>
-                  {activeAccount.flow === "yt-to-fb"
-                    ? "One YouTube Shorts URL per row. Run AI preflight, then choose the caption you want."
-                    : activeAccount.flow === "tt-to-fb"
-                      ? "One TikTok URL per row. Caption is optional — leave blank to auto-generate with AI."
-                      : "One Instagram Reel URL per row (public reels only)."}{" "}
-                  Scheduled time must be 11 minutes – 6 months from now.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="max-h-[420px] space-y-3 overflow-y-auto pr-1">
-                  {items.map((item, i) => (
-                    <div
-                      key={i}
-                      className="grid gap-2 md:grid-cols-[1fr_220px_auto_auto_auto] md:items-start"
-                    >
-                      <div>
-                        <Label className="flex items-center gap-1 text-xs">
-                          {activeAccount.flow === "yt-to-fb" ? (
-                            <>
-                              <YoutubeIcon size={12} className="text-[#ff0000]" /> YouTube URL
-                            </>
-                          ) : activeAccount.flow === "tt-to-fb" ? (
-                            <>
-                              <TiktokIcon size={12} /> TikTok URL
-                            </>
-                          ) : (
-                            <>
-                              <InstagramIcon size={12} className="text-[#e4405f]" /> Instagram Reel URL
-                            </>
-                          )}
-                        </Label>
-                        <Input
-                          placeholder={
-                            activeAccount.flow === "yt-to-fb"
-                              ? "https://www.youtube.com/shorts/..."
-                              : activeAccount.flow === "tt-to-fb"
-                                ? "https://www.tiktok.com/@user/video/..."
-                                : "https://www.instagram.com/reel/..."
-                          }
-                          value={item.url}
-                          onChange={(e) => updateItem(i, { url: e.target.value })}
+              {/* ---------------- Queue ---------------- */}
+              <TabsContent value="queue" className="flex flex-col gap-3.5">
+                <RepostPipeline stages={pipelineStages} />
+                <div className="grid items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_384px]">
+                  <div className="flex min-w-0 flex-col gap-3.5">
+                    {/* Bulk paste: the fastest way to fill a queue. */}
+                    <div className="flex flex-col gap-3 rounded-[20px] bg-card p-5">
+                      <Label htmlFor="paste-links" className="text-sm">
+                        Add {source.noun} links
+                      </Label>
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                        <Textarea
+                          id="paste-links"
+                          rows={2}
+                          placeholder={`${source.placeholder}\none link per line`}
+                          value={pasteDraft}
+                          onChange={(e) => setPasteDraft(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                              e.preventDefault();
+                              addPastedUrls();
+                            }
+                          }}
                           disabled={running}
+                          className="max-h-40 min-h-11"
                         />
-                        {activeAccount.flow === "tt-to-fb" && (
-                          <div className="mt-2">
-                            <Label className="flex items-center justify-between gap-1 text-xs">
-                              <span>Caption (optional)</span>
-                              {item.caption && (
-                                <button
-                                  type="button"
-                                  onClick={() => updateItem(i, { caption: "" })}
-                                  disabled={running}
-                                  className="text-[10px] text-muted-foreground underline"
-                                >
-                                  Use AI instead
-                                </button>
-                              )}
-                            </Label>
-                            <textarea
-                              placeholder="Leave blank to auto-generate with AI"
-                              value={item.caption ?? ""}
-                              onChange={(e) => updateItem(i, { caption: e.target.value })}
-                              disabled={running}
-                              rows={2}
-                              className="w-full resize-y rounded-md border border-input bg-transparent px-3 py-1.5 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] disabled:opacity-50"
-                            />
-                          </div>
-                        )}
-                        {(activeAccount.flow === "yt-to-fb" ||
-                          activeAccount.flow === "tt-to-fb") && (
-                          <div className="mt-2">
-                            <Label className="text-xs">First comment (optional)</Label>
-                            <textarea
-                              placeholder="Posted as a comment under the video after upload (links, CTAs, hashtags…)"
-                              value={item.comment ?? ""}
-                              onChange={(e) => updateItem(i, { comment: e.target.value })}
-                              disabled={running}
-                              rows={2}
-                              className="w-full resize-y rounded-md border border-input bg-transparent px-3 py-1.5 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] disabled:opacity-50"
-                            />
-                          </div>
-                        )}
+                        <Button
+                          variant="outline"
+                          onClick={addPastedUrls}
+                          disabled={running || !pasteDraft.trim()}
+                          className="sm:mt-1"
+                        >
+                          <Plus data-icon="inline-start" /> Add to queue
+                        </Button>
                       </div>
-                      <div>
-                        <Label className="text-xs">Scheduled at</Label>
-                        <Input
-                          type="datetime-local"
-                          value={item.scheduledAt}
-                          onChange={(e) => updateItem(i, { scheduledAt: e.target.value })}
-                          disabled={running || item.publishNow}
-                        />
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {[
-                            { label: "+12h", minutes: 12 * 60 },
-                            { label: "+1d", minutes: 24 * 60 },
-                            { label: "+2d", minutes: 2 * 24 * 60 },
-                          ].map((preset) => (
-                            <button
-                              key={preset.label}
-                              type="button"
-                              onClick={() =>
-                                updateItem(i, {
-                                  scheduledAt: defaultScheduledAt(preset.minutes),
-                                  publishNow: false,
-                                })
-                              }
-                              disabled={running}
-                              className="rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
+                      <p className="text-xs text-faint">
+                        Each new link is slotted one day after the last. Times must be 11 minutes
+                        to 6 months out.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-col rounded-[20px] bg-card">
+                      <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-5 pb-3">
+                        <h2 className="text-base font-medium">
+                          Queue{" "}
+                          <span className="num font-normal text-muted-foreground">
+                            {filledItems.length}
+                          </span>
+                        </h2>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {flow === "yt-to-fb" && (
+                            <span className="num text-xs text-muted-foreground">
+                              {captionedCount} of {ytQueueUrls.length} captioned
+                            </span>
+                          )}
+                          {flow === "yt-to-fb" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => void runPreflight()}
+                              disabled={runningPreflight || running || ytQueueUrls.length === 0}
                             >
-                              {preset.label}
-                            </button>
+                              {runningPreflight ? (
+                                <Loader2 data-icon="inline-start" className="animate-spin" />
+                              ) : (
+                                <Sparkles data-icon="inline-start" />
+                              )}
+                              {runningPreflight ? "Writing captions…" : "Write captions"}
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => void downloadAll()}
+                            disabled={running || downloading || filledItems.length === 0}
+                          >
+                            <Download data-icon="inline-start" />
+                            {downloading && downloadingRow === null ? "Zipping…" : "Download all"}
+                          </Button>
+                        </div>
+                      </div>
+
+                      <ol className="flex flex-col">
+                        {items.map((item, i) => {
+                          const key = canonicalYoutubeUrl(item.url);
+                          const pf = flow === "yt-to-fb" && item.url.trim() ? preflightItems[key] : undefined;
+                          const thumb = flow === "yt-to-fb" && item.url.trim() ? youtubeThumb(item.url) : null;
+                          return (
+                            <li
+                              key={i}
+                              className="grid gap-4 border-t border-border px-5 py-5 sm:grid-cols-[112px_minmax(0,1fr)]"
+                            >
+                              <div className="hidden aspect-video w-28 items-center justify-center overflow-hidden rounded-lg bg-raised sm:flex">
+                                {thumb ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={thumb} alt={pf?.title || "Video thumbnail"} className="size-full object-cover" loading="lazy" />
+                                ) : (
+                                  source.icon
+                                )}
+                              </div>
+                              <div className="flex min-w-0 flex-col gap-3">
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    aria-label={`${source.noun} URL, row ${i + 1}`}
+                                    placeholder={source.placeholder}
+                                    value={item.url}
+                                    onChange={(e) => updateItem(i, { url: e.target.value })}
+                                    disabled={running}
+                                  />
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => void downloadRow(i)}
+                                    disabled={running || downloading || !item.url.trim()}
+                                    aria-label={`Download row ${i + 1}`}
+                                    title="Download this video"
+                                  >
+                                    {downloadingRow === i ? <Loader2 className="animate-spin" /> : <Download />}
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => removeRow(i)}
+                                    disabled={running || downloading}
+                                    aria-label={`Remove row ${i + 1}`}
+                                    title="Remove"
+                                  >
+                                    <Trash2 />
+                                  </Button>
+                                </div>
+                                {pf?.title && <p className="truncate text-sm font-medium">{pf.title}</p>}
+
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <Input
+                                    type="datetime-local"
+                                    aria-label={`Scheduled time, row ${i + 1}`}
+                                    value={item.scheduledAt}
+                                    onChange={(e) => updateItem(i, { scheduledAt: e.target.value })}
+                                    disabled={running || item.publishNow}
+                                    className="num w-auto"
+                                  />
+                                  {[
+                                    { label: "+12h", minutes: 12 * 60 },
+                                    { label: "+1d", minutes: 24 * 60 },
+                                    { label: "+2d", minutes: 2 * 24 * 60 },
+                                  ].map((preset) => (
+                                    <Button
+                                      key={preset.label}
+                                      size="xs"
+                                      variant="outline"
+                                      onClick={() =>
+                                        updateItem(i, {
+                                          scheduledAt: defaultScheduledAt(preset.minutes),
+                                          publishNow: false,
+                                        })
+                                      }
+                                      disabled={running}
+                                      aria-label={`Schedule ${preset.label} from now`}
+                                    >
+                                      {preset.label}
+                                    </Button>
+                                  ))}
+                                  <label className="ml-1 flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+                                    <Switch
+                                      checked={item.publishNow}
+                                      onCheckedChange={(v) => updateItem(i, { publishNow: v })}
+                                      disabled={running || downloading}
+                                    />
+                                    Post now
+                                  </label>
+                                </div>
+
+                                {flow === "yt-to-fb" && item.url.trim() && (
+                                  <div className="flex flex-col gap-2">
+                                    {!pf ? (
+                                      <p className="text-sm text-faint">
+                                        No caption yet. Write captions drafts three to pick from.
+                                      </p>
+                                    ) : (
+                                      <div role="radiogroup" aria-label={`Caption for row ${i + 1}`} className="flex flex-col gap-1.5">
+                                        {pf.variants.map((variant) => {
+                                          const selected = pf.selectedVariantId === variant.id;
+                                          return (
+                                            <button
+                                              key={variant.id}
+                                              type="button"
+                                              role="radio"
+                                              aria-checked={selected}
+                                              disabled={running || approvingPreflight === key}
+                                              onClick={() => void approvePreflight({ url: key, variantId: variant.id })}
+                                              className={cn(
+                                                "grid cursor-pointer grid-cols-[16px_minmax(0,1fr)] gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-wait",
+                                                selected ? "bg-raised text-white" : "text-muted-foreground hover:bg-accent hover:text-white",
+                                              )}
+                                            >
+                                              <span
+                                                className={cn(
+                                                  "mt-0.5 flex size-4 items-center justify-center rounded-full border",
+                                                  selected ? "border-data bg-data text-black" : "border-input",
+                                                )}
+                                              >
+                                                {selected && <Check className="size-3" strokeWidth={3} />}
+                                              </span>
+                                              <span className="flex flex-col gap-0.5">
+                                                <span className="text-xs text-faint capitalize">{variant.hookType || "general"}</span>
+                                                <span className="whitespace-pre-line">{variant.text}</span>
+                                              </span>
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {flow === "tt-to-fb" && (
+                                  <div className="flex flex-col gap-2">
+                                    <Label htmlFor={`caption-${i}`} className="text-muted-foreground">
+                                      Caption · blank lets AI write it
+                                    </Label>
+                                    <Textarea
+                                      id={`caption-${i}`}
+                                      rows={2}
+                                      value={item.caption ?? ""}
+                                      onChange={(e) => updateItem(i, { caption: e.target.value })}
+                                      disabled={running}
+                                    />
+                                  </div>
+                                )}
+
+                                {needsFbPage &&
+                                  (item.comment !== undefined ? (
+                                    <div className="flex flex-col gap-2">
+                                      <div className="flex items-center justify-between">
+                                        <Label htmlFor={`comment-${i}`} className="text-muted-foreground">
+                                          First comment
+                                        </Label>
+                                        <button
+                                          type="button"
+                                          className="cursor-pointer text-xs text-muted-foreground hover:text-white"
+                                          onClick={() => updateItem(i, { comment: undefined })}
+                                          disabled={running}
+                                        >
+                                          Remove
+                                        </button>
+                                      </div>
+                                      <Textarea
+                                        id={`comment-${i}`}
+                                        rows={2}
+                                        placeholder="Links, CTAs or hashtags posted under the video"
+                                        value={item.comment}
+                                        onChange={(e) => updateItem(i, { comment: e.target.value })}
+                                        disabled={running}
+                                      />
+                                    </div>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      className="flex w-fit cursor-pointer items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-white"
+                                      onClick={() => updateItem(i, { comment: "" })}
+                                      disabled={running}
+                                    >
+                                      <MessageSquarePlus className="size-4" /> Add first comment
+                                    </button>
+                                  ))}
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ol>
+                      <div className="border-t border-border px-5 py-3">
+                        <Button variant="ghost" size="sm" onClick={addRow} disabled={running || downloading}>
+                          <Plus data-icon="inline-start" /> Add empty row
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Rail: the week ahead, the live run, the latest results. */}
+                  <aside className="flex min-w-0 flex-col gap-3.5">
+                    <div className="flex flex-col gap-4 rounded-[20px] bg-card p-5">
+                      <SectionHeading>Next 7 days</SectionHeading>
+                      <div className="grid grid-cols-7 gap-1.5">
+                        {days.map((d, idx) => (
+                          <div key={idx} className="flex flex-col items-center gap-2">
+                            <span className={cn("text-xs", idx === 0 ? "text-white" : "text-faint")}>
+                              {d.date.toLocaleDateString(undefined, { weekday: "narrow" })}
+                            </span>
+                            <div
+                              className="flex h-24 w-full flex-col-reverse items-center gap-1 rounded-lg bg-black p-1.5"
+                              title={`${d.scheduled} scheduled, ${d.queued} in queue`}
+                            >
+                              {Array.from({ length: Math.min(d.scheduled, 6) }).map((_, k) => (
+                                <span key={`s${k}`} className="h-2 w-full rounded-full bg-data" />
+                              ))}
+                              {Array.from({ length: Math.min(d.queued, Math.max(0, 6 - d.scheduled)) }).map((_, k) => (
+                                <span key={`q${k}`} className="h-2 w-full rounded-full border border-white/60" />
+                              ))}
+                            </div>
+                            <span className="num text-xs text-muted-foreground">{d.date.getDate()}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1.5">
+                          <span className="h-2 w-3 rounded-full bg-data" />
+                          <span className="num">{weekScheduled}</span> scheduled
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          <span className="h-2 w-3 rounded-full border border-white/60" />
+                          <span className="num">{weekQueued}</span> in queue, not sent
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-3 rounded-[20px] bg-card p-5">
+                      <SectionHeading
+                        action={
+                          running && <Loader2 className="size-4 animate-spin text-muted-foreground" aria-label="Running" />
+                        }
+                      >
+                        Run log
+                      </SectionHeading>
+                      {log.length === 0 ? (
+                        <p className="text-sm text-faint">Each step of the next run shows here.</p>
+                      ) : (
+                        <pre className="max-h-72 overflow-y-auto rounded-xl bg-black p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap break-words text-muted-foreground">
+                          {log.join("\n")}
+                        </pre>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col gap-1 rounded-[20px] bg-card p-5">
+                      <SectionHeading
+                        action={
+                          history.length > 0 && (
+                            <Button variant="ghost" size="sm" onClick={() => setTab("history")}>
+                              View all
+                            </Button>
+                          )
+                        }
+                      >
+                        Recent
+                      </SectionHeading>
+                      {history.length === 0 ? (
+                        <p className="pt-1 text-sm text-faint">Scheduled and posted videos appear here.</p>
+                      ) : (
+                        <ul className="flex flex-col">
+                          {history.slice(0, 4).map((r, i) => (
+                            <li key={i} className="flex items-center gap-3 border-t border-border py-3 first:border-t-0">
+                              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                                <span className="truncate text-sm">{r.caption || r.url}</span>
+                                <span className="num text-xs text-faint">{fmtWhen(r.scheduledAt)}</span>
+                              </div>
+                              <StatusBadge status={r.status} />
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </aside>
+                </div>
+              </TabsContent>
+
+              {/* ---------------- History ---------------- */}
+              <TabsContent value="history">
+                <div className="flex flex-col rounded-[20px] bg-card">
+                  <div className="flex items-center justify-between gap-3 px-5 pt-5 pb-3">
+                    <h2 className="text-base font-medium">
+                      History <span className="num font-normal text-muted-foreground">{history.length}</span>
+                    </h2>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => activeId && void pollPublishStatus(activeId)}
+                    >
+                      <RefreshCcw data-icon="inline-start" /> Check status
+                    </Button>
+                  </div>
+                  {history.length === 0 ? (
+                    <p className="border-t border-border px-5 py-6 text-sm text-faint">
+                      Nothing has been scheduled from this account yet.
+                    </p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[760px] text-sm">
+                        <thead>
+                          <tr className="text-left text-xs text-faint">
+                            <th className="px-5 py-2.5 font-normal">Status</th>
+                            <th className="px-3 py-2.5 font-normal">Video and caption</th>
+                            <th className="px-3 py-2.5 text-right font-normal">Scheduled for</th>
+                            <th className="px-3 py-2.5 text-right font-normal">Published</th>
+                            <th className="px-5 py-2.5 text-right font-normal">Post ID</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {history.map((r, i) => (
+                            <tr key={i} className={cn("border-t border-border align-top", r.status === "deleted" && "text-muted-foreground")}>
+                              <td className="px-5 py-3.5">
+                                <StatusBadge status={r.status} />
+                              </td>
+                              <td className="max-w-0 px-3 py-3.5">
+                                <a
+                                  href={r.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className={cn("block truncate hover:underline", r.status === "deleted" && "line-through")}
+                                >
+                                  {r.url}
+                                </a>
+                                <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{r.caption || "—"}</p>
+                                {r.error && <p className="mt-1 text-xs text-danger-ink">{r.error}</p>}
+                              </td>
+                              <td className="num px-3 py-3.5 text-right whitespace-nowrap">{fmtWhen(r.scheduledAt)}</td>
+                              <td className="num px-3 py-3.5 text-right whitespace-nowrap text-muted-foreground">
+                                {r.publishedAt ? fmtWhen(r.publishedAt) : "—"}
+                              </td>
+                              <td className="px-5 py-3.5 text-right font-mono text-xs text-muted-foreground" title={r.fbPostId}>
+                                {r.fbPostId ? `${r.fbPostId.slice(0, 10)}…` : "—"}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+
+              {/* ---------------- Coach ---------------- */}
+              {showCoach && (
+                <TabsContent value="coach">
+                  <div className="flex flex-col gap-3.5">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <p className="text-sm text-muted-foreground">
+                        {coachReport
+                          ? `Last 7 days, ${new Date(coachReport.windowStart).toLocaleDateString()} to ${new Date(coachReport.windowEnd).toLocaleDateString()} · generated ${fmtWhen(coachReport.generatedAt)}`
+                          : "No report yet. The coach reads the last 7 days of this account's history."}
+                      </p>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="ghost" onClick={() => void refreshCoach(activeAccount.id)} disabled={runningCoach || running}>
+                          Load saved
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => void refreshCoachNow()} disabled={runningCoach || running}>
+                          {runningCoach ? <Loader2 data-icon="inline-start" className="animate-spin" /> : <Brain data-icon="inline-start" />}
+                          {runningCoach ? "Reading history…" : "Refresh insights"}
+                        </Button>
+                      </div>
+                    </div>
+                    {coachReport && (
+                      <>
+                        <dl className="grid grid-cols-2 overflow-hidden rounded-[20px] bg-card sm:grid-cols-3 lg:grid-cols-6">
+                          {[
+                            { label: "Total", value: coachReport.metrics.total },
+                            { label: "Posted", value: coachReport.metrics.posted },
+                            { label: "Scheduled", value: coachReport.metrics.scheduled },
+                            { label: "Failed", value: coachReport.metrics.failed, bad: coachReport.metrics.failed > 0 },
+                            { label: "Avg caption", value: coachReport.metrics.avgCaptionLength, unit: "chars" },
+                            { label: "Avg hashtags", value: coachReport.metrics.avgHashtags },
+                          ].map((m) => (
+                            <div key={m.label} className="flex flex-col gap-1 border-border p-5 not-last:border-r max-lg:nth-[2n]:border-r-0">
+                              <dt className="text-sm text-muted-foreground">{m.label}</dt>
+                              <dd className={cn("num text-2xl font-medium", m.bad && "text-danger-ink")}>
+                                {m.value}
+                                {m.unit && <span className="ml-1 text-sm text-faint">{m.unit}</span>}
+                              </dd>
+                            </div>
+                          ))}
+                        </dl>
+                        <div className="grid items-start gap-3.5 lg:grid-cols-3">
+                          {[
+                            { title: "Findings", lines: coachReport.findings },
+                            { title: "Recommendations", lines: coachReport.recommendations },
+                            { title: "Next 7 days", lines: coachReport.playbook },
+                          ].map((block) => (
+                            <div key={block.title} className="flex flex-col gap-3 rounded-[20px] bg-card p-5">
+                              <h2 className="text-base font-medium">{block.title}</h2>
+                              {block.lines.length === 0 ? (
+                                <p className="text-sm text-faint">Nothing to report.</p>
+                              ) : (
+                                <ul className="flex list-disc flex-col gap-2 pl-4 text-sm text-muted-foreground marker:text-faint">
+                                  {block.lines.map((line, i) => (
+                                    <li key={i}>{line}</li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
                           ))}
                         </div>
+                      </>
+                    )}
+                  </div>
+                </TabsContent>
+              )}
+
+              {/* ---------------- Settings ---------------- */}
+              <TabsContent value="settings">
+                <div className="flex max-w-5xl flex-col">
+                  {needsFbPage ? (
+                    <SettingsRow
+                      title="Facebook destination"
+                      description={
+                        <>
+                          The Page this account posts to. Page tokens expire about every 60 days;
+                          if posting stops working, paste a fresh one here.
+                        </>
+                      }
+                    >
+                      <SecretField
+                        id="fb-token"
+                        label="Page access token"
+                        value={fbTokenDraft}
+                        onChange={setFbTokenDraft}
+                        placeholder={accountConfig?.fbPageAccessToken.masked ?? "EAAG…"}
+                        isSet={accountConfig?.fbPageAccessToken.set}
+                        onClear={() => void clearAccountKey("fbPageAccessToken")}
+                        disabled={savingAccount}
+                      />
+                      <SecretField
+                        id="fb-page"
+                        label="Page ID"
+                        value={pageId}
+                        onChange={setPageId}
+                        placeholder="1234567890"
+                        isSet={accountConfig?.defaultPageId.set}
+                        onClear={() => void clearAccountKey("defaultPageId")}
+                        disabled={running}
+                        secret={false}
+                      />
+                      <div className="flex justify-end">
+                        <Button onClick={() => void saveAccountConfig()} disabled={savingAccount}>
+                          {savingAccount ? "Saving…" : "Save destination"}
+                        </Button>
                       </div>
-                      <label className="flex items-center gap-2 whitespace-nowrap text-sm md:mt-7">
-                        <input
-                          type="checkbox"
-                          checked={item.publishNow}
-                          onChange={(e) => updateItem(i, { publishNow: e.target.checked })}
-                          disabled={running || downloading}
-                        />
-                        Post now
-                      </label>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="md:mt-5"
-                        onClick={() => void downloadRow(i)}
-                        disabled={running || downloading || !item.url.trim()}
-                        title={downloadingRow === i ? "Downloading…" : "Download this video"}
-                      >
-                        <Download
-                          className={`size-4 ${downloadingRow === i ? "animate-pulse" : ""}`}
-                        />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="md:mt-5"
-                        onClick={() => removeRow(i)}
-                        disabled={running || downloading}
-                        title="Remove"
-                      >
-                        <Trash2 className="size-4" />
+                    </SettingsRow>
+                  ) : (
+                    <SettingsRow
+                      title="YouTube destination"
+                      description="The Google account this pipe uploads to. The default API quota allows about 6 uploads a day per Google project."
+                    >
+                      {accountConfig?.youtube?.connected ? (
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="flex items-center gap-2 font-medium">
+                              <CircleCheck className="size-4 text-data" />
+                              {accountConfig.youtube.channelTitle ?? "Unknown channel"}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              Connected {fmtWhen(accountConfig.youtube.connectedAt)}
+                              {accountConfig.youtube.channelId && (
+                                <> · <span className="font-mono">{accountConfig.youtube.channelId}</span></>
+                              )}
+                            </span>
+                          </div>
+                          <Button variant="outline" onClick={() => void disconnectYoutube()}>
+                            <Unplug data-icon="inline-start" /> Disconnect
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <p className="text-sm text-muted-foreground">Not connected.</p>
+                          <Button
+                            render={<a href={`/api/reposting/oauth/youtube/start?accountId=${activeAccount.id}`} />}
+                            nativeButton={false}
+                          >
+                            <LinkIcon data-icon="inline-start" /> Connect YouTube
+                          </Button>
+                        </div>
+                      )}
+                    </SettingsRow>
+                  )}
+
+                  <SettingsRow
+                    title="Shared keys"
+                    description="Used by every reposting account: the YouTube Data API for video details, OpenRouter for captions and the coach."
+                  >
+                    <SecretField
+                      id="yt-key"
+                      label="YouTube API key"
+                      value={youtubeKeyDraft}
+                      onChange={setYoutubeKeyDraft}
+                      placeholder={sharedConfig?.youtubeApiKey.masked ?? "AIza…"}
+                      isSet={sharedConfig?.youtubeApiKey.set}
+                      onClear={() => void clearSharedKey("youtubeApiKey")}
+                      disabled={savingShared}
+                    />
+                    <SecretField
+                      id="or-key"
+                      label="OpenRouter API key"
+                      value={openrouterKeyDraft}
+                      onChange={setOpenrouterKeyDraft}
+                      placeholder={sharedConfig?.openrouterApiKey.masked ?? "sk-or-v1-…"}
+                      isSet={sharedConfig?.openrouterApiKey.set}
+                      onClear={() => void clearSharedKey("openrouterApiKey")}
+                      disabled={savingShared}
+                    />
+                    <SecretField
+                      id="or-model"
+                      label="OpenRouter model"
+                      value={openrouterModelDraft}
+                      onChange={setOpenrouterModelDraft}
+                      placeholder={sharedConfig?.openrouterModel.value ?? "anthropic/claude-haiku-4.5"}
+                      isSet={sharedConfig?.openrouterModel.set}
+                      onClear={() => void clearSharedKey("openrouterModel")}
+                      clearLabel="Use default"
+                      disabled={savingShared}
+                      secret={false}
+                    />
+                    <div className="flex justify-end">
+                      <Button onClick={() => void saveShared()} disabled={savingShared}>
+                        {savingShared ? "Saving…" : "Save keys"}
                       </Button>
                     </div>
-                  ))}
-                </div>
-                <div className="flex items-center gap-2 pt-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={addRow}
-                    disabled={running || downloading}
-                  >
-                    <Plus className="size-4" /> Add row
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => void downloadAll()}
-                    disabled={running || downloading}
-                  >
-                    <Download className="size-4" />
-                    {downloading ? "Downloading…" : "Download all"}
-                  </Button>
-                  <Button onClick={run} disabled={running || downloading}>
-                    <Send className="size-4" /> {running ? "Running…" : "Schedule all"}
-                  </Button>
-                  {running && (
-                    <Button variant="destructive" onClick={stopRun}>
-                      <Square className="size-4" /> Stop
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                  </SettingsRow>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Activity</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {log.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No activity yet.</p>
-                ) : (
-                  <pre className="max-h-80 overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-muted p-3 text-xs">
-                    {log.join("\n")}
-                  </pre>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">History</CardTitle>
-                <CardDescription>Scheduled and posted videos (most recent first)</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {history.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Nothing scheduled yet.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {history.map((r, i) => (
-                      <div
-                        key={i}
-                        className={`rounded-md border p-3 text-xs ${r.status === "deleted" ? "opacity-60" : ""}`}
-                      >
-                        <div className="flex flex-wrap items-center gap-2">
-                          {r.status === "posted" ? (
-                            <span className="flex items-center gap-1 font-medium text-green-500">
-                              <CircleCheck className="size-4" /> Posted
-                            </span>
-                          ) : r.status === "scheduled" ? (
-                            <span className="flex items-center gap-1 font-medium text-amber-500">
-                              <Clock className="size-4" /> Scheduled
-                            </span>
-                          ) : r.status === "failed" ? (
-                            <span className="flex items-center gap-1 font-medium text-red-500">
-                              <CircleX className="size-4" /> Failed
-                            </span>
-                          ) : r.status === "deleted" ? (
-                            <span className="flex items-center gap-1 font-medium text-red-500">
-                              <CircleX className="size-4" /> Deleted
-                            </span>
-                          ) : (
-                            <span className="font-medium capitalize">{r.status}</span>
-                          )}
-                          <span className="text-muted-foreground">
-                            for {new Date(r.scheduledAt).toLocaleString()}
-                          </span>
-                          {r.publishedAt && (
-                            <span className="text-muted-foreground">
-                              · published {new Date(r.publishedAt).toLocaleString()}
-                            </span>
-                          )}
-                          {r.deletedAt && (
-                            <span className="text-muted-foreground">
-                              · deleted {new Date(r.deletedAt).toLocaleString()}
-                            </span>
-                          )}
-                          <span className="text-muted-foreground">· FB id {r.fbPostId}</span>
-                        </div>
-                        <div
-                          className={`mt-1 truncate ${r.status === "deleted" ? "line-through" : ""}`}
-                        >
-                          {r.url}
-                        </div>
-                        <div
-                          className={`mt-1 line-clamp-2 text-muted-foreground ${r.status === "deleted" ? "line-through" : ""}`}
-                        >
-                          {r.caption}
-                        </div>
+                  <SettingsRow
+                    title="Account"
+                    description="Renaming changes only the label. Deleting hides the account; its history stays on disk."
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-medium">{activeAccount.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {FLOW_LABELS[activeAccount.flow]} · created {new Date(activeAccount.createdAt).toLocaleDateString()}
+                        </span>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                      <div className="flex gap-2">
+                        <Button variant="outline" onClick={openRenameDialog} disabled={running}>
+                          <Pencil data-icon="inline-start" /> Rename
+                        </Button>
+                        <Button variant="destructive" onClick={() => setDeleteDialogId(activeId)} disabled={running}>
+                          <Trash2 data-icon="inline-start" /> Delete
+                        </Button>
+                      </div>
+                    </div>
+                  </SettingsRow>
+                </div>
+              </TabsContent>
+            </Tabs>
           </>
         )}
-      </main>
+      </div>
 
       <Dialog open={nameDialog !== null} onOpenChange={(o) => !o && setNameDialog(null)}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>
               {nameDialog?.mode === "rename" ? "Rename account" : "New reposting account"}
             </DialogTitle>
             <DialogDescription>
               {nameDialog?.mode === "rename"
-                ? "Update the display name for this reposting account."
-                : "Each account holds its own Facebook destination, token, and history."}
+                ? "Only the label changes. Queue, token and history stay."
+                : "Each account holds its own destination, token, queue and history."}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3">
+          <div className="flex flex-col gap-5">
             {nameDialog?.mode === "create" && (
-              <div className="space-y-2">
-                <Label className="text-xs">Flow</Label>
+              <div className="flex flex-col gap-2" role="radiogroup" aria-label="Flow">
+                <Label>Pipe</Label>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                  {(["yt-to-fb", "ig-to-yt", "tt-to-fb"] as const).map((f) => {
+                  {(["yt-to-fb", "tt-to-fb", "ig-to-yt"] as const).map((f) => {
                     const selected = nameDialog.flow === f;
                     return (
                       <button
                         key={f}
                         type="button"
+                        role="radio"
+                        aria-checked={selected}
                         onClick={() =>
-                          setNameDialog((d) =>
-                            d?.mode === "create" ? { ...d, flow: f } : d,
-                          )
+                          setNameDialog((d) => (d?.mode === "create" ? { ...d, flow: f } : d))
                         }
-                        className={`flex flex-col items-start gap-1 rounded-md border p-3 text-left transition ${
-                          selected
-                            ? "border-primary bg-primary/5"
-                            : "border-border hover:border-primary/40"
-                        }`}
+                        className={cn(
+                          "flex cursor-pointer flex-col items-start gap-3 rounded-xl p-3 text-left ring-1 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                          selected ? "bg-raised ring-white" : "ring-border hover:bg-accent",
+                        )}
                       >
                         <FlowBadge flow={f} size={18} />
                         <span className="text-sm font-medium">{FLOW_LABELS[f]}</span>
@@ -1808,15 +2148,13 @@ export function RepostingPanel() {
                 </div>
               </div>
             )}
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="account-name">Account name</Label>
               <Input
                 id="account-name"
                 autoFocus
                 value={nameDialog?.value ?? ""}
-                onChange={(e) =>
-                  setNameDialog((d) => (d ? { ...d, value: e.target.value } : d))
-                }
+                onChange={(e) => setNameDialog((d) => (d ? { ...d, value: e.target.value } : d))}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
@@ -1827,106 +2165,34 @@ export function RepostingPanel() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setNameDialog(null)}>
+            <Button variant="ghost" onClick={() => setNameDialog(null)}>
               Cancel
             </Button>
             <Button onClick={submitNameDialog} disabled={!nameDialog?.value.trim()}>
-              {nameDialog?.mode === "rename" ? "Save" : "Create"}
+              {nameDialog?.mode === "rename" ? "Save" : "Create account"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <AlertDialog
-        open={deleteDialogId !== null}
-        onOpenChange={(o) => !o && setDeleteDialogId(null)}
-      >
+      <AlertDialog open={deleteDialogId !== null} onOpenChange={(o) => !o && setDeleteDialogId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this account?</AlertDialogTitle>
+            <AlertDialogTitle>
+              Delete “{accounts.find((a) => a.id === deleteDialogId)?.name ?? ""}”?
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              {(() => {
-                const acc = accounts.find((a) => a.id === deleteDialogId);
-                return `"${acc?.name ?? ""}" will be removed from the list. Its history is preserved on disk and can be recovered.`;
-              })()}
+              It disappears from the list. Its history is kept on disk and can be recovered.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteAccount}>Delete</AlertDialogAction>
+            <AlertDialogAction variant="destructive" onClick={confirmDeleteAccount}>
+              Delete account
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <Dialog open={switchOpen} onOpenChange={setSwitchOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Switch reposting account</DialogTitle>
-            <DialogDescription>
-              Pick which account to work with. Your queue, settings, and history reload to match.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="max-h-[60vh] space-y-1 overflow-y-auto">
-            {accounts.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No accounts yet.</p>
-            ) : (
-              [...accounts]
-                .sort((a, b) =>
-                  a.flow === b.flow
-                    ? a.name.localeCompare(b.name)
-                    : a.flow.localeCompare(b.flow),
-                )
-                .map((a) => {
-                  const isActive = a.id === activeId;
-                  return (
-                    <button
-                      key={a.id}
-                      type="button"
-                      onClick={() => {
-                        setActiveId(a.id);
-                        setSwitchOpen(false);
-                      }}
-                      className={`flex w-full items-center justify-between gap-3 rounded-md border px-3 py-2 text-left transition ${
-                        isActive
-                          ? "border-primary bg-primary/10"
-                          : "border-border hover:border-primary/40 hover:bg-accent"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <FlowBadge flow={a.flow} size={16} />
-                        <div>
-                          <div className="text-sm font-medium">{a.name}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {FLOW_LABELS[a.flow]}
-                          </div>
-                        </div>
-                      </div>
-                      {isActive && (
-                        <span className="text-[10px] uppercase tracking-wider text-primary">
-                          Active
-                        </span>
-                      )}
-                    </button>
-                  );
-                })
-            )}
-          </div>
-          <DialogFooter className="sm:justify-between">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setSwitchOpen(false);
-                openCreateDialog();
-              }}
-            >
-              <Plus className="size-4" /> Add Account
-            </Button>
-            <Button variant="ghost" onClick={() => setSwitchOpen(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }
