@@ -69,6 +69,15 @@ export async function POST(
         }
       };
 
+      // Block repeats: a URL or time slot already live (scheduled/posted) is skipped.
+      const live = (await listScheduleRecords(accountId)).filter(
+        (r) => r.status === "scheduled" || r.status === "posted",
+      );
+      const usedUrls = new Set(live.map((r) => r.url.trim()));
+      const usedSlots = new Set(
+        live.filter((r) => r.status === "scheduled").map((r) => r.scheduledAt),
+      );
+
       for (let i = 0; i < items.length; i++) {
         if (req.signal.aborted) {
           send({ step: "stopped", message: "Run stopped by user" });
@@ -76,6 +85,18 @@ export async function POST(
         }
         const item = items[i];
         const idx = i + 1;
+        const url = item.url.trim();
+        const duplicate = usedUrls.has(url)
+          ? "this video is already scheduled or posted"
+          : !item.publishNow && usedSlots.has(item.scheduledAt)
+            ? `another video is already scheduled for ${item.scheduledAt}`
+            : null;
+        if (duplicate) {
+          send({ idx, url: item.url, step: "error", message: `Skipped duplicate: ${duplicate}` });
+          continue;
+        }
+        usedUrls.add(url);
+        if (!item.publishNow) usedSlots.add(item.scheduledAt);
         try {
           const result = await runItem({
             accountId,
