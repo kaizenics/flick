@@ -34,7 +34,8 @@ export type MaskedAccountConfig = {
 function mask(value: string | undefined): ConfigField {
   if (!value) return { set: false, value: null, masked: null };
   const tail = value.slice(-4);
-  return { set: true, value, masked: `••••••${tail}` };
+  // Never send the secret itself back to the browser; the UI only needs set + masked.
+  return { set: true, value: null, masked: `••••••${tail}` };
 }
 
 async function readJson<T extends object>(file: string): Promise<T> {

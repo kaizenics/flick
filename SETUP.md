@@ -372,6 +372,11 @@ sudo journalctl -u fb-auto -f   # tail logs
 
 ```
 yourdomain.tld {
+    # The app has no login of its own. Without this anyone on the internet can
+    # run your pipelines. Make a hash with: caddy hash-password
+    basic_auth {
+        admin <paste-hash-here>
+    }
     reverse_proxy localhost:3000 {
         # Streaming endpoints (NDJSON) need long timeouts
         flush_interval -1
