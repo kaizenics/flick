@@ -6,6 +6,7 @@ import {
 } from "@/lib/video-editor/store";
 import { validateBlur, validateTimeline } from "@/lib/video-editor/processing";
 import type { BlurFilter, EditTimeline } from "@/lib/video-editor/types";
+import { coerceSegments } from "@/lib/video-editor/segments";
 
 export const runtime = "nodejs";
 
@@ -25,15 +26,10 @@ function toNumber(value: unknown): number | null {
   return null;
 }
 
+// Accepts `{ segments }` or the legacy trim/cut shape; range checks happen in validateTimeline below.
 function parseTimeline(input: unknown): EditTimeline | null {
-  if (!input || typeof input !== "object") return null;
-  const raw = input as Record<string, unknown>;
-  const trimStart = toNumber(raw.trimStart);
-  const trimEnd = toNumber(raw.trimEnd);
-  const cutStart = raw.cutStart == null ? null : toNumber(raw.cutStart);
-  const cutEnd = raw.cutEnd == null ? null : toNumber(raw.cutEnd);
-  if (trimStart == null || trimEnd == null) return null;
-  return { trimStart, trimEnd, cutStart, cutEnd };
+  const segments = coerceSegments(input);
+  return segments ? { segments } : null;
 }
 
 function parseBlur(input: unknown): BlurFilter | null {
@@ -139,14 +135,15 @@ export async function PATCH(
       return Response.json({ error: "timeline-required" }, { status: 400 });
     }
 
+    let validSegments;
     try {
-      validateTimeline(nextTimeline, current.source.metadata.duration);
+      validSegments = validateTimeline(nextTimeline, current.source.metadata.duration).segments;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Invalid timeline";
       return Response.json({ error: message }, { status: 400 });
     }
 
-    if (body.timeline !== undefined) patch.timeline = nextTimeline;
+    if (body.timeline !== undefined) patch.timeline = { segments: validSegments };
 
     if (blur || body.blur !== undefined) {
       const nextBlur = blur ?? current.blur;
