@@ -56,6 +56,7 @@ import {
   ChevronsUpDown,
   Loader2,
   MessageSquarePlus,
+  ListVideo,
   Settings2,
   FileSearch,
   Upload,
@@ -432,6 +433,13 @@ export function RepostingPanel() {
   const [deleteDialogId, setDeleteDialogId] = useState<string | null>(null);
   const [tab, setTab] = useState<"queue" | "history" | "coach" | "settings">("queue");
   const [pasteDraft, setPasteDraft] = useState("");
+  const [channelPick, setChannelPick] = useState<{
+    channel: string;
+    shorts: Array<{ id: string; url: string; title: string }>;
+    selected: Set<string>;
+  } | null>(null);
+  const [listingChannel, setListingChannel] = useState(false);
+  const [channelLimit, setChannelLimit] = useState<number | null>(20);
   // Clock for "upcoming" and the 7-day strip; ticks each minute.
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -1146,6 +1154,7 @@ export function RepostingPanel() {
       return;
     }
     setRunSteps({});
+    setChannelPick(null);
     localStorage.setItem("reposting:activeId", activeId);
     void refreshAccountConfig(activeId);
     void refreshHistory(activeId);
@@ -1284,6 +1293,25 @@ export function RepostingPanel() {
     },
   ];
 
+  // Facebook rejects schedules more than 6 months out; stop a day short.
+  const MAX_AHEAD_MS = 179 * 24 * 60 * 60_000;
+  const appendUrls = (urls: string[]) => {
+    const next = items.filter((it) => it.url.trim().length > 0);
+    let added = 0;
+    for (const url of urls) {
+      const last = next.at(-1);
+      const scheduledAt = (last && nextDayFrom(last.scheduledAt)) ?? defaultScheduledAt(20);
+      if (new Date(scheduledAt).getTime() - now > MAX_AHEAD_MS) break;
+      next.push({ ...blankRow(), url, scheduledAt });
+      added++;
+    }
+    setItems(next.length > 0 ? next : [blankRow()]);
+    const skipped = urls.length - added;
+    if (skipped > 0)
+      toast.warning(`Added ${added}, one per day. ${skipped} left out: they would land past Facebook's 6-month limit.`);
+    else toast.success(`Added ${added} link${added === 1 ? "" : "s"}, one per day`);
+  };
+
   const addPastedUrls = () => {
     const urls = pasteDraft
       .split(/[\s,]+/)
@@ -1293,20 +1321,58 @@ export function RepostingPanel() {
       toast.error("No links found. Paste one URL per line.");
       return;
     }
-    setItems((arr) => {
-      const next = arr.filter((it) => it.url.trim().length > 0);
-      for (const url of urls) {
-        const last = next.at(-1);
-        next.push({
-          ...blankRow(),
-          url,
-          scheduledAt: (last && nextDayFrom(last.scheduledAt)) ?? defaultScheduledAt(20),
-        });
-      }
-      return next;
-    });
+    appendUrls(urls);
     setPasteDraft("");
-    toast.success(`Added ${urls.length} link${urls.length === 1 ? "" : "s"}, one per day`);
+  };
+
+  // A single pasted YouTube channel (not a video) switches the box to "list its Shorts".
+  const pastedChannel =
+    flow === "yt-to-fb" &&
+    /^(@[\w.-]+|(https?:\/\/)?(www\.|m\.)?youtube\.com\/(@[\w.-]+|channel\/UC[\w-]{22}|c\/[\w.-]+|user\/[\w.-]+)(\/[\w-]*)?\/?(\?\S*)?)$/i.test(
+      pasteDraft.trim(),
+    );
+  const knownVideoIds = new Set([
+    ...history.map((r) => r.videoId),
+    ...filledItems.map((it) => canonicalYoutubeUrl(it.url).match(/[?&]v=([\w-]{11})/)?.[1]),
+  ]);
+
+  const listChannel = async () => {
+    if (!activeId) return;
+    setListingChannel(true);
+    try {
+      const res = await fetch(`/api/reposting/accounts/${activeId}/channel-shorts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ channel: pasteDraft.trim(), limit: channelLimit }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        channel?: string;
+        shorts?: Array<{ id: string; url: string; title: string }>;
+        error?: string;
+      };
+      if (!res.ok || !data.shorts) throw new Error(data.error ?? `Listing failed (${res.status})`);
+      if (data.shorts.length === 0) {
+        toast.info("That channel has no Shorts.");
+        return;
+      }
+      setChannelPick({
+        channel: data.channel ?? pasteDraft.trim(),
+        shorts: data.shorts,
+        selected: new Set(data.shorts.filter((v) => !knownVideoIds.has(v.id)).map((v) => v.id)),
+      });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Listing failed");
+    } finally {
+      setListingChannel(false);
+    }
+  };
+
+  const addPickedShorts = () => {
+    if (!channelPick) return;
+    // Keep the channel's order (newest first) so the newest goes out first.
+    appendUrls(channelPick.shorts.filter((v) => channelPick.selected.has(v.id)).map((v) => v.url));
+    setChannelPick(null);
+    setPasteDraft("");
   };
 
   const showCoach = flow === "yt-to-fb";
@@ -1492,19 +1558,134 @@ export function RepostingPanel() {
                           disabled={running}
                           className="max-h-40 min-h-11"
                         />
-                        <Button
-                          variant="outline"
-                          onClick={addPastedUrls}
-                          disabled={running || !pasteDraft.trim()}
-                          className="sm:mt-1"
-                        >
-                          <Plus data-icon="inline-start" /> Add to queue
-                        </Button>
+                        {pastedChannel ? (
+                          <div className="flex gap-2 sm:mt-1">
+                            <select
+                              aria-label="How many Shorts to list"
+                              value={channelLimit ?? "all"}
+                              onChange={(e) => setChannelLimit(e.target.value === "all" ? null : Number(e.target.value))}
+                              disabled={listingChannel}
+                              className="h-9 cursor-pointer rounded-full border border-input bg-black px-3 text-sm"
+                            >
+                              <option value={20}>Newest 20</option>
+                              <option value={50}>Newest 50</option>
+                              <option value="all">All</option>
+                            </select>
+                            <Button variant="outline" onClick={() => void listChannel()} disabled={running || listingChannel}>
+                              {listingChannel ? (
+                                <Loader2 data-icon="inline-start" className="animate-spin" />
+                              ) : (
+                                <ListVideo data-icon="inline-start" />
+                              )}
+                              {listingChannel ? "Listing…" : "List Shorts"}
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            onClick={addPastedUrls}
+                            disabled={running || !pasteDraft.trim()}
+                            className="sm:mt-1"
+                          >
+                            <Plus data-icon="inline-start" /> Add to queue
+                          </Button>
+                        )}
                       </div>
                       <p className="text-xs text-faint">
-                        Each new link is slotted one day after the last. Times must be 11 minutes
-                        to 6 months out.
+                        {flow === "yt-to-fb"
+                          ? "Paste video links, or a channel link to pick from its Shorts. "
+                          : ""}
+                        Each new link is slotted one day after the last, up to 6 months out.
                       </p>
+                      {channelPick && (
+                        <div className="flex flex-col gap-3 border-t border-border pt-4">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="min-w-0 text-sm">
+                              <span className="num">{channelPick.shorts.length}</span> Shorts from{" "}
+                              <span className="font-medium break-all">
+                                {channelPick.channel.replace(/^https:\/\/www\.youtube\.com\//, "").replace(/\/shorts$/, "")}
+                              </span>
+                              <span className="text-muted-foreground">
+                                {" "}· <span className="num">{channelPick.selected.size}</span> selected
+                              </span>
+                            </p>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() =>
+                                  setChannelPick((p) =>
+                                    p && {
+                                      ...p,
+                                      selected:
+                                        p.selected.size > 0
+                                          ? new Set()
+                                          : new Set(p.shorts.filter((v) => !knownVideoIds.has(v.id)).map((v) => v.id)),
+                                    },
+                                  )
+                                }
+                              >
+                                {channelPick.selected.size > 0 ? "Select none" : "Select new"}
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={() => setChannelPick(null)}>
+                                Cancel
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={addPickedShorts}
+                                disabled={running || channelPick.selected.size === 0}
+                              >
+                                <Plus data-icon="inline-start" /> Add {channelPick.selected.size} to queue
+                              </Button>
+                            </div>
+                          </div>
+                          <ul className="grid max-h-[420px] gap-1 overflow-y-auto sm:grid-cols-2">
+                            {channelPick.shorts.map((v) => {
+                              const known = knownVideoIds.has(v.id);
+                              const checked = channelPick.selected.has(v.id);
+                              return (
+                                <li key={v.id}>
+                                  <label
+                                    className={cn(
+                                      "flex cursor-pointer items-center gap-3 rounded-xl p-2 transition-colors hover:bg-accent",
+                                      checked && "bg-raised",
+                                    )}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      className="size-4 shrink-0 accent-white"
+                                      checked={checked}
+                                      onChange={() =>
+                                        setChannelPick((p) => {
+                                          if (!p) return p;
+                                          const sel = new Set(p.selected);
+                                          if (sel.has(v.id)) sel.delete(v.id);
+                                          else sel.add(v.id);
+                                          return { ...p, selected: sel };
+                                        })
+                                      }
+                                    />
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                      src={`https://i.ytimg.com/vi/${v.id}/mqdefault.jpg`}
+                                      alt=""
+                                      loading="lazy"
+                                      className="aspect-video w-20 shrink-0 rounded-md bg-raised object-cover"
+                                    />
+                                    <span className="flex min-w-0 flex-col gap-0.5">
+                                      <span className={cn("line-clamp-2 text-sm", known && "text-muted-foreground")}>
+                                        {v.title || v.id}
+                                      </span>
+                                      {known && <span className="text-xs text-faint">Already queued or posted</span>}
+                                    </span>
+                                  </label>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex flex-col rounded-[20px] bg-card">
