@@ -2,17 +2,21 @@
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 
 import { useEffect, useState } from "react";
-import { SidebarTrigger } from "@/components/ui/sidebar";
+import type * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -21,8 +25,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowRight, Flame, Plus, RefreshCcw, Search } from "lucide-react";
+import {
+  Check,
+  ChevronsUpDown,
+  Flame,
+  ListPlus,
+  Loader2,
+  Plus,
+  RefreshCcw,
+  Search,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import { AppTopbar } from "@/components/dashboard/app-topbar";
 import {
   YoutubeIcon,
   InstagramIcon,
@@ -183,10 +199,29 @@ function canonicalYoutubeUrl(input: string): string {
   return trimmed;
 }
 
-function formatCount(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return String(n);
+function formatDuration(seconds: number): string {
+  const total = Math.round(seconds);
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}
+
+function SettingsRow({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="grid gap-4 border-b border-border py-8 first:pt-2 last:border-b-0 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:gap-10">
+      <div className="flex flex-col gap-1.5 lg:pt-2">
+        <h2 className="text-base font-medium">{title}</h2>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+      <div className="flex flex-col gap-5 rounded-2xl bg-card p-5">{children}</div>
+    </section>
+  );
 }
 
 function parseKeywordList(input: string): string[] {
@@ -222,7 +257,6 @@ export function ScrapingPanel() {
   const [activeId, setActiveId] = useState<string | null>(null);
 
   const [nameDialog, setNameDialog] = useState<{ value: string; flow: Flow } | null>(null);
-  const [switchOpen, setSwitchOpen] = useState(false);
   const [creating, setCreating] = useState(false);
 
   const [items, setItems] = useState<QueueItem[]>([blankRow()]);
@@ -707,404 +741,525 @@ export function ScrapingPanel() {
     appendingTop,
   ]);
 
+  const isYt = activeAccount?.flow === "yt-to-fb";
+  const busy = discovering || runningViral;
+  const minScore = viralProfile?.minViralScore ?? minViralScoreDraft;
+  const selectedCount = candidates.filter((c) => candidateSelection[c.url]).length;
+  const aboveMin = candidates.filter((c) => (c.viralScore ?? -1) >= minScore).length;
+  const queuedCount = items.filter((it) => it.url.trim()).length;
+  const allSelected = candidates.length > 0 && selectedCount === candidates.length;
+  const profileDisabled = savingViralProfile || runningViral;
+  const numInput = (v: string, fallback: number) =>
+    Number.isFinite(Number(v)) ? Number(v) : fallback;
+
   return (
     <>
-      <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
-        <SidebarTrigger className="-ml-1" />
-        <div className="flex items-center gap-2">
-          <Search className="size-4" />
-          <h1 className="text-sm font-medium">Scraping</h1>
-        </div>
-
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          {activeAccount ? (
-            <div className="inline-flex items-center gap-2 rounded-md border border-primary bg-primary/10 px-2.5 py-1 text-xs">
-              <FlowBadge flow={activeAccount.flow} />
-              <span className="font-medium">{activeAccount.name}</span>
-            </div>
-          ) : (
-            <span className="text-xs text-muted-foreground">No account selected</span>
-          )}
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setSwitchOpen(true)}
-            disabled={accounts.length === 0}
+      <AppTopbar title="Scraping" icon={Search}>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={<Button variant="ghost" className="max-w-[16rem] text-white" disabled={runningViral} />}
           >
-            <ArrowRight className="size-4" /> Switch account
-          </Button>
-          <Button size="sm" variant="outline" onClick={openCreateDialog}>
-            <Plus className="size-4" /> Add Account
-          </Button>
-        </div>
-      </header>
+            {activeAccount ? (
+              <>
+                <FlowBadge flow={activeAccount.flow} />
+                <span className="truncate">{activeAccount.name}</span>
+              </>
+            ) : (
+              <span>Choose account</span>
+            )}
+            <ChevronsUpDown data-icon="inline-end" className="text-muted-foreground" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-72">
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Reposting accounts</DropdownMenuLabel>
+              {[...accounts]
+                .sort((a, b) =>
+                  a.flow === b.flow ? a.name.localeCompare(b.name) : a.flow.localeCompare(b.flow),
+                )
+                .map((a) => (
+                  <DropdownMenuItem key={a.id} onClick={() => setActiveId(a.id)} className="py-2">
+                    <FlowBadge flow={a.flow} />
+                    <span className="flex min-w-0 flex-col">
+                      <span className="truncate">{a.name}</span>
+                      <span className="text-xs text-muted-foreground">{FLOW_LABELS[a.flow]}</span>
+                    </span>
+                    {a.id === activeId && <Check className="ml-auto" />}
+                  </DropdownMenuItem>
+                ))}
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuItem onClick={openCreateDialog}>
+                <Plus /> New account
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </AppTopbar>
 
-      <main className="flex-1 space-y-6 p-6">
-        {!activeAccount ? (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">No reposting account yet</CardTitle>
-              <CardDescription>
-                Create an account to start running discovery and viral scraping.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button onClick={openCreateDialog}>
-                <Plus className="size-4" /> Add account
+      <div className="flex flex-1 flex-col gap-6 px-4 pt-7 pb-16 md:px-7">
+        {!activeAccount || !isYt ? (
+          <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 pt-6">
+            <div className="flex flex-col gap-2">
+              <h1 className="text-xl font-semibold">Viral finder</h1>
+              <p className="text-sm text-muted-foreground">
+                {!activeAccount
+                  ? "No reposting account yet. Discovery fills an account's queue, so create one first."
+                  : `${activeAccount.name} is ${FLOW_LABELS[activeAccount.flow]}. Scraping only works with YouTube → Facebook accounts.`}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                onClick={() => setNameDialog({ value: `Account ${accounts.length + 1}`, flow: "yt-to-fb" })}
+              >
+                <Plus data-icon="inline-start" /> New YouTube → Facebook account
               </Button>
-            </CardContent>
-          </Card>
-        ) : activeAccount.flow !== "yt-to-fb" ? (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Unsupported flow for Scraping</CardTitle>
-              <CardDescription>
-                Scraping currently supports only <strong>YouTube → Facebook</strong> accounts.
-                Switch to a `yt-to-fb` account or create one.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-wrap gap-2">
-              <Button variant="outline" onClick={() => setSwitchOpen(true)}>
-                <ArrowRight className="size-4" /> Switch account
-              </Button>
-              <Button onClick={openCreateDialog}>
-                <Plus className="size-4" /> Add `yt-to-fb` account
-              </Button>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Flame className="size-4 text-orange-500" />
-                Viral Finder (YouTube)
-              </CardTitle>
-              <CardDescription>
-                Score-based discovery for short-form candidates (≤ 3 minutes), plus manual query mode.
-                Append actions write into this account&apos;s existing Reposting queue.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <div className="rounded-md border p-3">
-                <div className="mb-3 text-sm font-medium">Niche profile</div>
-                <div className="grid gap-3 md:grid-cols-3">
-                  <div>
-                    <Label className="text-xs">Niche</Label>
+          <>
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div className="flex min-w-0 flex-col gap-1.5">
+                <h1 className="text-xl font-semibold">Viral finder</h1>
+                <p className="text-sm text-muted-foreground">
+                  {candidates.length === 0 ? (
+                    "No candidates yet. Run the finder to score fresh shorts against this niche."
+                  ) : (
+                    <>
+                      <span className="num">{candidates.length}</span> candidates,{" "}
+                      <span className="num">{aboveMin}</span> at or above score{" "}
+                      <span className="num">{minScore}</span>. Queue holds{" "}
+                      <span className="num">{queuedCount}</span> links.
+                    </>
+                  )}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => void appendTopCandidates()}
+                  disabled={appendingTop || busy || candidates.length === 0}
+                >
+                  {appendingTop ? (
+                    <Loader2 data-icon="inline-start" className="animate-spin" />
+                  ) : (
+                    <ListPlus data-icon="inline-start" />
+                  )}
+                  {appendingTop ? "Sending…" : "Send top to queue"}
+                </Button>
+                <Button onClick={() => void runViralNow()} disabled={busy}>
+                  {runningViral ? (
+                    <Loader2 data-icon="inline-start" className="animate-spin" />
+                  ) : (
+                    <Flame data-icon="inline-start" />
+                  )}
+                  {runningViral ? "Finding…" : "Run viral finder"}
+                </Button>
+              </div>
+            </div>
+
+            <Tabs defaultValue="candidates" className="gap-6">
+              <div className="-mx-4 overflow-x-auto border-b border-border px-4 md:-mx-7 md:px-7">
+                <TabsList variant="line" className="h-10 gap-5 p-0">
+                  <TabsTrigger value="candidates" className="flex-none px-0">
+                    Candidates
+                    <span className="num text-muted-foreground">{candidates.length}</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="profile" className="flex-none px-0">
+                    Niche profile
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+
+              {/* ---------------- Candidates ---------------- */}
+              <TabsContent value="candidates" className="flex flex-col gap-3.5">
+                <form
+                  className="flex flex-col gap-3 rounded-[20px] bg-card p-5 md:flex-row md:items-end"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void runDiscover();
+                  }}
+                >
+                  <div className="flex min-w-0 flex-1 flex-col gap-2">
+                    <Label htmlFor="discover-query">Search a query instead</Label>
                     <Input
-                      placeholder="e.g. ai tools, football edits, travel hacks"
-                      value={nicheDraft}
-                      onChange={(e) => setNicheDraft(e.target.value)}
-                      disabled={savingViralProfile || runningViral}
+                      id="discover-query"
+                      placeholder="e.g. ai tools, football clips, travel hacks"
+                      value={discoverQuery}
+                      onChange={(e) => setDiscoverQuery(e.target.value)}
+                      disabled={busy}
                     />
                   </div>
-                  <div>
-                    <Label className="text-xs">Audience</Label>
-                    <Input
-                      placeholder="e.g. students, beginners, gamers"
-                      value={audienceDraft}
-                      onChange={(e) => setAudienceDraft(e.target.value)}
-                      disabled={savingViralProfile || runningViral}
-                    />
+                  <div className="flex gap-3">
+                    <div className="flex w-28 flex-col gap-2">
+                      <Label htmlFor="discover-max">Max results</Label>
+                      <Input
+                        id="discover-max"
+                        type="number"
+                        min={1}
+                        max={25}
+                        className="num"
+                        value={discoverMaxResults}
+                        onChange={(e) => setDiscoverMaxResults(numInput(e.target.value, 10))}
+                        disabled={busy}
+                      />
+                    </div>
+                    <div className="flex w-28 flex-col gap-2">
+                      <Label htmlFor="discover-fresh">Within days</Label>
+                      <Input
+                        id="discover-fresh"
+                        type="number"
+                        min={1}
+                        max={365}
+                        className="num"
+                        value={discoverFreshnessDays}
+                        onChange={(e) => setDiscoverFreshnessDays(numInput(e.target.value, 7))}
+                        disabled={busy}
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <Label className="text-xs">Language</Label>
-                    <Input
-                      placeholder="e.g. english, bahasa"
-                      value={languageDraft}
-                      onChange={(e) => setLanguageDraft(e.target.value)}
-                      disabled={savingViralProfile || runningViral}
-                    />
+                  <Button type="submit" variant="outline" disabled={busy}>
+                    {discovering ? (
+                      <Loader2 data-icon="inline-start" className="animate-spin" />
+                    ) : (
+                      <Search data-icon="inline-start" />
+                    )}
+                    {discovering ? "Searching…" : "Search"}
+                  </Button>
+                </form>
+
+                <div className="flex flex-col rounded-[20px] bg-card">
+                  <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-5 pb-3">
+                    <div className="flex min-w-0 flex-col gap-1">
+                      <h2 className="text-base font-medium">
+                        Candidates{" "}
+                        <span className="num font-normal text-muted-foreground">{candidates.length}</span>
+                      </h2>
+                      <p className="text-xs text-faint">
+                        Shorts up to 3 minutes. Auto-refresh{" "}
+                        {viralProfile?.autoRefreshEnabled
+                          ? `every ${viralProfile.autoRefreshMinutes} min while this page is open`
+                          : "off"}
+                        , auto-send {viralProfile?.autoAppendEnabled ? "on" : "off"}.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={appendSelectedCandidatesToQueue}
+                        disabled={discovering || selectedCount === 0}
+                      >
+                        <Plus data-icon="inline-start" />
+                        Add selected{selectedCount > 0 ? ` (${selectedCount})` : ""}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => void refreshCandidates(activeAccount.id)}
+                        disabled={discovering || discoverClearing || runningViral}
+                      >
+                        <RefreshCcw data-icon="inline-start" /> Refresh
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => void clearDiscover()}
+                        disabled={discovering || discoverClearing || runningViral || candidates.length === 0}
+                      >
+                        <Trash2 data-icon="inline-start" />
+                        {discoverClearing ? "Clearing…" : "Clear"}
+                      </Button>
+                    </div>
                   </div>
-                  <div>
-                    <Label className="text-xs">Seed keywords (comma-separated)</Label>
+
+                  {candidates.length === 0 ? (
+                    <p className="border-t border-border px-5 py-6 text-sm text-faint">
+                      {busy
+                        ? "Searching YouTube…"
+                        : "Nothing found yet. Run viral finder for the niche profile, or search a query above."}
+                    </p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[820px] text-sm">
+                        <thead>
+                          <tr className="text-left text-xs text-faint">
+                            <th className="w-10 py-2.5 pl-5 font-normal">
+                              <input
+                                type="checkbox"
+                                aria-label="Select all candidates"
+                                className="size-4 cursor-pointer accent-white align-middle"
+                                checked={allSelected}
+                                onChange={(e) =>
+                                  setCandidateSelection(
+                                    e.target.checked
+                                      ? Object.fromEntries(candidates.map((c) => [c.url, true]))
+                                      : {},
+                                  )
+                                }
+                              />
+                            </th>
+                            <th className="px-3 py-2.5 font-normal">Video</th>
+                            <th className="px-3 py-2.5 text-right font-normal">Score</th>
+                            <th className="px-3 py-2.5 text-right font-normal">Views</th>
+                            <th className="px-3 py-2.5 text-right font-normal">Likes</th>
+                            <th className="px-3 py-2.5 text-right font-normal">Length</th>
+                            <th className="py-2.5 pr-5 pl-3 text-right font-normal">Published</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {candidates.map((c) => {
+                            const thumb = c.videoId
+                              ? `https://i.ytimg.com/vi/${c.videoId}/mqdefault.jpg`
+                              : c.thumbUrl;
+                            const checked = Boolean(candidateSelection[c.url]);
+                            return (
+                              <tr
+                                key={c.url}
+                                className={cn("border-t border-border align-middle", checked && "bg-raised/40")}
+                              >
+                                <td className="py-3 pl-5">
+                                  <input
+                                    type="checkbox"
+                                    aria-label={`Select ${c.title || c.url}`}
+                                    className="size-4 cursor-pointer accent-white align-middle"
+                                    checked={checked}
+                                    onChange={(e) =>
+                                      setCandidateSelection((prev) => ({
+                                        ...prev,
+                                        [c.url]: e.target.checked,
+                                      }))
+                                    }
+                                  />
+                                </td>
+                                <td className="max-w-0 px-3 py-3">
+                                  <div className="flex items-center gap-3">
+                                    <a
+                                      href={c.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex aspect-video w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-raised"
+                                    >
+                                      {thumb ? (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img src={thumb} alt="" className="size-full object-cover" loading="lazy" />
+                                      ) : (
+                                        <YoutubeIcon size={18} className="text-faint" />
+                                      )}
+                                    </a>
+                                    <div className="flex min-w-0 flex-col gap-0.5">
+                                      <a
+                                        href={c.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="truncate font-medium hover:underline"
+                                        title={c.title || c.url}
+                                      >
+                                        {c.title || c.url}
+                                      </a>
+                                      <span className="truncate text-xs text-muted-foreground">
+                                        {c.channelTitle || "Unknown channel"}
+                                        {c.sourceQuery ? ` · from “${c.sourceQuery}”` : ""}
+                                      </span>
+                                      {c.matchedKeywords && c.matchedKeywords.length > 0 && (
+                                        <span className="truncate text-xs text-faint">
+                                          Matches {c.matchedKeywords.join(", ")}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </td>
+                                <td
+                                  className={cn(
+                                    "num px-3 py-3 text-right font-medium",
+                                    typeof c.viralScore === "number" && c.viralScore >= minScore
+                                      ? "text-data"
+                                      : "text-muted-foreground",
+                                  )}
+                                  title={
+                                    c.scoreBreakdown
+                                      ? `Velocity ${c.scoreBreakdown.velocity}, freshness ${c.scoreBreakdown.freshness}, engagement ${c.scoreBreakdown.engagement}, relevance ${c.scoreBreakdown.relevance}, feedback ${c.scoreBreakdown.feedback}`
+                                      : "No breakdown"
+                                  }
+                                >
+                                  {typeof c.viralScore === "number" ? c.viralScore : "—"}
+                                </td>
+                                <td className="num px-3 py-3 text-right">{c.viewCount.toLocaleString()}</td>
+                                <td className="num px-3 py-3 text-right text-muted-foreground">
+                                  {c.likeCount.toLocaleString()}
+                                </td>
+                                <td className="num px-3 py-3 text-right text-muted-foreground">
+                                  {formatDuration(c.durationSeconds)}
+                                </td>
+                                <td className="num py-3 pr-5 pl-3 text-right whitespace-nowrap text-muted-foreground">
+                                  {c.publishedAt
+                                    ? new Date(c.publishedAt).toLocaleDateString(undefined, {
+                                        month: "short",
+                                        day: "numeric",
+                                      })
+                                    : "—"}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+
+              {/* ---------------- Niche profile ---------------- */}
+              <TabsContent value="profile" className="flex flex-col">
+                <SettingsRow
+                  title="Niche"
+                  description="Who this account posts for. The finder builds its queries from these."
+                >
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="vp-niche">Niche</Label>
+                      <Input
+                        id="vp-niche"
+                        placeholder="ai tools, football edits"
+                        value={nicheDraft}
+                        onChange={(e) => setNicheDraft(e.target.value)}
+                        disabled={profileDisabled}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="vp-audience">Audience</Label>
+                      <Input
+                        id="vp-audience"
+                        placeholder="students, gamers"
+                        value={audienceDraft}
+                        onChange={(e) => setAudienceDraft(e.target.value)}
+                        disabled={profileDisabled}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="vp-language">Language</Label>
+                      <Input
+                        id="vp-language"
+                        placeholder="english, bahasa"
+                        value={languageDraft}
+                        onChange={(e) => setLanguageDraft(e.target.value)}
+                        disabled={profileDisabled}
+                      />
+                    </div>
+                  </div>
+                </SettingsRow>
+                <SettingsRow
+                  title="Keywords"
+                  description="Comma-separated. Seeds raise relevance; excluded words drop a video."
+                >
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="vp-seed">Seed keywords</Label>
                     <Input
+                      id="vp-seed"
                       placeholder="ai tools, productivity, money tips"
                       value={seedKeywordsDraft}
                       onChange={(e) => setSeedKeywordsDraft(e.target.value)}
-                      disabled={savingViralProfile || runningViral}
+                      disabled={profileDisabled}
                     />
                   </div>
-                  <div>
-                    <Label className="text-xs">Exclude keywords (comma-separated)</Label>
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="vp-exclude">Exclude keywords</Label>
                     <Input
+                      id="vp-exclude"
                       placeholder="politics, nsfw, controversy"
                       value={excludeKeywordsDraft}
                       onChange={(e) => setExcludeKeywordsDraft(e.target.value)}
-                      disabled={savingViralProfile || runningViral}
+                      disabled={profileDisabled}
                     />
                   </div>
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <div>
-                      <Label className="text-xs">Min viral score</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={minViralScoreDraft}
-                        onChange={(e) =>
-                          setMinViralScoreDraft(
-                            Number.isFinite(Number(e.target.value))
-                              ? Number(e.target.value)
-                              : 65,
-                          )
-                        }
-                        disabled={savingViralProfile || runningViral}
+                </SettingsRow>
+                <SettingsRow
+                  title="Automation"
+                  description="Auto-refresh runs in this browser tab only. Send top respects the daily cap and the minimum score."
+                >
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="vp-min">Minimum viral score</Label>
+                    <Input
+                      id="vp-min"
+                      type="number"
+                      min={0}
+                      max={100}
+                      className="num w-28"
+                      value={minViralScoreDraft}
+                      onChange={(e) => setMinViralScoreDraft(numInput(e.target.value, 65))}
+                      disabled={profileDisabled}
+                    />
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
+                    <label className="flex cursor-pointer items-center gap-3 text-sm">
+                      <Switch
+                        checked={autoRefreshEnabledDraft}
+                        onCheckedChange={setAutoRefreshEnabledDraft}
+                        disabled={profileDisabled}
                       />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Auto-refresh (minutes)</Label>
+                      Auto-refresh while this page is open
+                    </label>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      Every
                       <Input
+                        aria-label="Auto-refresh interval in minutes"
                         type="number"
                         min={15}
                         max={1440}
+                        className="num w-24"
                         value={autoRefreshMinutesDraft}
-                        onChange={(e) =>
-                          setAutoRefreshMinutesDraft(
-                            Number.isFinite(Number(e.target.value))
-                              ? Number(e.target.value)
-                              : 360,
-                          )
-                        }
-                        disabled={savingViralProfile || runningViral}
+                        onChange={(e) => setAutoRefreshMinutesDraft(numInput(e.target.value, 360))}
+                        disabled={profileDisabled}
                       />
+                      min
                     </div>
                   </div>
-                </div>
-                <div className="mt-3 flex flex-wrap items-center gap-3">
-                  <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={autoRefreshEnabledDraft}
-                      onChange={(e) => setAutoRefreshEnabledDraft(e.target.checked)}
-                      disabled={savingViralProfile || runningViral}
-                    />
-                    Auto-refresh while this page is open
-                  </label>
-                  <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
+                  <label className="flex cursor-pointer items-center gap-3 border-t border-border pt-5 text-sm">
+                    <Switch
                       checked={autoAppendEnabledDraft}
-                      onChange={(e) => setAutoAppendEnabledDraft(e.target.checked)}
-                      disabled={savingViralProfile || runningViral}
+                      onCheckedChange={setAutoAppendEnabledDraft}
+                      disabled={profileDisabled}
                     />
-                    Auto-append top candidates after each viral run
+                    Send top candidates to the queue after each run
                   </label>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => void saveViralProfile()}
-                    disabled={savingViralProfile || runningViral}
-                  >
-                    {savingViralProfile ? "Saving…" : "Save viral profile"}
+                </SettingsRow>
+                <div className="flex justify-end pt-2">
+                  <Button variant="outline" onClick={() => void saveViralProfile()} disabled={profileDisabled}>
+                    {savingViralProfile && <Loader2 data-icon="inline-start" className="animate-spin" />}
+                    {savingViralProfile ? "Saving…" : "Save profile"}
                   </Button>
                 </div>
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-[1fr_120px_120px_auto]">
-                <div>
-                  <Label className="text-xs">Manual query</Label>
-                  <Input
-                    placeholder="e.g. ai tools, football clips, travel hacks"
-                    value={discoverQuery}
-                    onChange={(e) => setDiscoverQuery(e.target.value)}
-                    disabled={discovering || runningViral}
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Max results</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={25}
-                    value={discoverMaxResults}
-                    onChange={(e) =>
-                      setDiscoverMaxResults(
-                        Number.isFinite(Number(e.target.value)) ? Number(e.target.value) : 10,
-                      )
-                    }
-                    disabled={discovering || runningViral}
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Freshness (days)</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={365}
-                    value={discoverFreshnessDays}
-                    onChange={(e) =>
-                      setDiscoverFreshnessDays(
-                        Number.isFinite(Number(e.target.value)) ? Number(e.target.value) : 7,
-                      )
-                    }
-                    disabled={discovering || runningViral}
-                  />
-                </div>
-                <div className="flex items-end">
-                  <Button onClick={() => void runDiscover()} disabled={discovering || runningViral}>
-                    {discovering ? "Discovering…" : "Manual discover"}
-                  </Button>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  size="sm"
-                  onClick={() => void runViralNow()}
-                  disabled={runningViral || discovering}
-                >
-                  <Flame className="size-4" /> {runningViral ? "Running…" : "Run viral finder"}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void appendTopCandidates()}
-                  disabled={appendingTop || runningViral || discovering || candidates.length === 0}
-                >
-                  <Plus className="size-4" /> {appendingTop ? "Appending…" : "Append top to queue"}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={appendSelectedCandidatesToQueue}
-                  disabled={discovering || candidates.length === 0}
-                >
-                  <Plus className="size-4" /> Append selected to queue
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void refreshCandidates(activeAccount.id)}
-                  disabled={discovering || discoverClearing || runningViral}
-                >
-                  <RefreshCcw className="size-4" /> Refresh list
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => void clearDiscover()}
-                  disabled={discovering || discoverClearing || runningViral || candidates.length === 0}
-                >
-                  {discoverClearing ? "Clearing…" : "Clear candidates"}
-                </Button>
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-[1fr_120px_120px_auto]">
-                <div className="text-xs text-muted-foreground">
-                  Auto-refresh status:{" "}
-                  {viralProfile?.autoRefreshEnabled
-                    ? `ON (${viralProfile.autoRefreshMinutes}m interval, browser-session only)`
-                    : "OFF"}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Min viral score: {viralProfile?.minViralScore ?? minViralScoreDraft}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Auto-append: {viralProfile?.autoAppendEnabled ? "ON" : "OFF"}
-                </div>
-              </div>
-
-              {candidates.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No discovered candidates yet. Run Viral Finder or Manual Discover.
-                </p>
-              ) : (
-                <div className="max-h-[360px] space-y-2 overflow-y-auto pr-1">
-                  {candidates.map((c) => (
-                    <label key={c.url} className="flex items-start gap-3 rounded-md border p-3 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={Boolean(candidateSelection[c.url])}
-                        onChange={(e) =>
-                          setCandidateSelection((prev) => ({
-                            ...prev,
-                            [c.url]: e.target.checked,
-                          }))
-                        }
-                        className="mt-1"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <div className="truncate font-medium">{c.title || c.url}</div>
-                          {typeof c.viralScore === "number" && (
-                            <span
-                              className="rounded-full border px-2 py-0.5 text-[11px] font-medium"
-                              title={
-                                c.scoreBreakdown
-                                  ? `velocity ${c.scoreBreakdown.velocity}, freshness ${c.scoreBreakdown.freshness}, engagement ${c.scoreBreakdown.engagement}, relevance ${c.scoreBreakdown.relevance}, feedback ${c.scoreBreakdown.feedback}`
-                                  : "no breakdown"
-                              }
-                            >
-                              Score {c.viralScore}
-                            </span>
-                          )}
-                        </div>
-                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                          <span>{c.channelTitle || "Unknown channel"}</span>
-                          <span>·</span>
-                          <span>{new Date(c.publishedAt).toLocaleDateString()}</span>
-                          <span>·</span>
-                          <span>{formatCount(c.viewCount)} views</span>
-                          <span>·</span>
-                          <span>{formatCount(c.likeCount)} likes</span>
-                          <span>·</span>
-                          <span>{Math.round(c.durationSeconds)}s</span>
-                          {c.sourceQuery ? (
-                            <>
-                              <span>·</span>
-                              <span>q: {c.sourceQuery}</span>
-                            </>
-                          ) : null}
-                        </div>
-                        {c.matchedKeywords && c.matchedKeywords.length > 0 ? (
-                          <div className="mt-1 truncate text-xs text-muted-foreground">
-                            matched: {c.matchedKeywords.join(", ")}
-                          </div>
-                        ) : null}
-                        <a
-                          href={c.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="mt-1 block truncate text-xs text-muted-foreground underline"
-                        >
-                          {c.url}
-                        </a>
-                      </div>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+              </TabsContent>
+            </Tabs>
+          </>
         )}
-      </main>
+      </div>
 
       <Dialog open={nameDialog !== null} onOpenChange={(o) => !o && setNameDialog(null)}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>New scraping account</DialogTitle>
+            <DialogTitle>New reposting account</DialogTitle>
             <DialogDescription>
-              Each account has its own queue, discovery candidates, and viral profile.
+              Each account has its own queue, discovery candidates and niche profile.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-2">
-              <Label className="text-xs">Flow</Label>
+          <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-2" role="radiogroup" aria-label="Flow">
+              <Label>Pipe</Label>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                {(["yt-to-fb", "ig-to-yt", "tt-to-fb"] as const).map((f) => {
+                {(["yt-to-fb", "tt-to-fb", "ig-to-yt"] as const).map((f) => {
                   const selected = nameDialog?.flow === f;
                   return (
                     <button
                       key={f}
                       type="button"
-                      onClick={() =>
-                        setNameDialog((d) => (d ? { ...d, flow: f } : d))
-                      }
-                      className={`flex flex-col items-start gap-1 rounded-md border p-3 text-left transition ${
-                        selected
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:border-primary/40"
-                      }`}
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => setNameDialog((d) => (d ? { ...d, flow: f } : d))}
+                      className={cn(
+                        "flex cursor-pointer flex-col items-start gap-3 rounded-xl p-3 text-left ring-1 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                        selected ? "bg-raised ring-white" : "ring-border hover:bg-accent",
+                      )}
                     >
                       <FlowBadge flow={f} size={18} />
                       <span className="text-sm font-medium">{FLOW_LABELS[f]}</span>
@@ -1113,15 +1268,13 @@ export function ScrapingPanel() {
                 })}
               </div>
             </div>
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="scraping-account-name">Account name</Label>
               <Input
                 id="scraping-account-name"
                 autoFocus
                 value={nameDialog?.value ?? ""}
-                onChange={(e) =>
-                  setNameDialog((d) => (d ? { ...d, value: e.target.value } : d))
-                }
+                onChange={(e) => setNameDialog((d) => (d ? { ...d, value: e.target.value } : d))}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
@@ -1136,75 +1289,7 @@ export function ScrapingPanel() {
               Cancel
             </Button>
             <Button onClick={submitNameDialog} disabled={creating || !nameDialog?.value.trim()}>
-              {creating ? "Creating…" : "Create"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={switchOpen} onOpenChange={setSwitchOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Switch scraping account</DialogTitle>
-            <DialogDescription>
-              Pick which account to use for discovery. Queue-aware append will use this account.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="max-h-[60vh] space-y-1 overflow-y-auto">
-            {accounts.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No accounts yet.</p>
-            ) : (
-              [...accounts]
-                .sort((a, b) =>
-                  a.flow === b.flow
-                    ? a.name.localeCompare(b.name)
-                    : a.flow.localeCompare(b.flow),
-                )
-                .map((a) => {
-                  const isActive = a.id === activeId;
-                  return (
-                    <button
-                      key={a.id}
-                      type="button"
-                      onClick={() => {
-                        setActiveId(a.id);
-                        setSwitchOpen(false);
-                      }}
-                      className={`flex w-full items-center justify-between gap-3 rounded-md border px-3 py-2 text-left transition ${
-                        isActive
-                          ? "border-primary bg-primary/10"
-                          : "border-border hover:border-primary/40 hover:bg-accent"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <FlowBadge flow={a.flow} size={16} />
-                        <div>
-                          <div className="text-sm font-medium">{a.name}</div>
-                          <div className="text-xs text-muted-foreground">{FLOW_LABELS[a.flow]}</div>
-                        </div>
-                      </div>
-                      {isActive && (
-                        <span className="text-[10px] uppercase tracking-wider text-primary">
-                          Active
-                        </span>
-                      )}
-                    </button>
-                  );
-                })
-            )}
-          </div>
-          <DialogFooter className="sm:justify-between">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setSwitchOpen(false);
-                openCreateDialog();
-              }}
-            >
-              <Plus className="size-4" /> Add Account
-            </Button>
-            <Button variant="ghost" onClick={() => setSwitchOpen(false)}>
-              Close
+              {creating ? "Creating…" : "Create account"}
             </Button>
           </DialogFooter>
         </DialogContent>

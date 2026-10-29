@@ -9,7 +9,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,6 +22,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
+import { Globe, LogIn, MoreHorizontal, Play, Square, Trash2, X } from "lucide-react";
 
 type LogEntry = {
   ts: string;
@@ -215,297 +225,338 @@ export default function AccountPanel({
     setProxyOpen(false);
   };
 
+  const running = !!status?.running;
+  const targets = config?.targetUrls ?? [];
+  const statusLine = !status
+    ? "Checking status…"
+    : running
+      ? `Running${status.startedAt ? ` since ${new Date(status.startedAt).toLocaleTimeString()}` : ""}${targets.length ? ` on ${targets.length} target ${targets.length === 1 ? "Page" : "Pages"}` : ""}.`
+      : !status.hasSession
+        ? "No saved Facebook session. Log in to capture one."
+        : targets.length === 0
+          ? "Session saved. Add a target Page before starting."
+          : `Idle. Session saved, ${targets.length} target ${targets.length === 1 ? "Page" : "Pages"} ready.`;
+
   return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
-      <header className="mb-4 flex items-center justify-between gap-3">
-        <input
-          className="min-w-0 flex-1 bg-transparent text-lg font-semibold tracking-tight outline-none focus:underline"
-          value={account.name}
-          onChange={(e) => onRename(account.id, e.target.value)}
-        />
-        <div className="flex items-center gap-2 text-sm">
-          <span
-            className={`inline-block h-2.5 w-2.5 rounded-full ${
-              status?.running ? "bg-green-500" : "bg-zinc-400"
-            }`}
-          />
-          {status?.running ? "Running" : "Idle"}
-          <Dialog open={proxyOpen} onOpenChange={setProxyOpen}>
-            <DialogTrigger render={<Button variant="outline" size="sm" />}>
-              {account.proxy?.server ? "Proxy ✓" : "Proxy"}
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Proxy for &quot;{account.name}&quot;</DialogTitle>
-                <DialogDescription>
-                  All Playwright traffic for this account (login + automation runs)
-                  will route through this proxy. Leave server blank and click
-                  Remove to clear.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="my-4 grid gap-3">
-                <div className="grid gap-1">
-                  <Label htmlFor={`proxy-server-${account.id}`}>Server</Label>
-                  <Input
-                    id={`proxy-server-${account.id}`}
-                    placeholder="http://1.2.3.4:8080  or  socks5://host:1080"
-                    value={proxyServer}
-                    onChange={(e) => setProxyServer(e.target.value)}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="grid gap-1">
-                    <Label htmlFor={`proxy-user-${account.id}`}>Username</Label>
-                    <Input
-                      id={`proxy-user-${account.id}`}
-                      placeholder="(optional)"
-                      value={proxyUser}
-                      onChange={(e) => setProxyUser(e.target.value)}
-                    />
-                  </div>
-                  <div className="grid gap-1">
-                    <Label htmlFor={`proxy-pass-${account.id}`}>Password</Label>
-                    <Input
-                      id={`proxy-pass-${account.id}`}
-                      type="password"
-                      placeholder="(optional)"
-                      value={proxyPass}
-                      onChange={(e) => setProxyPass(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className="grid gap-1">
-                  <Label htmlFor={`proxy-bypass-${account.id}`}>Bypass</Label>
-                  <Input
-                    id={`proxy-bypass-${account.id}`}
-                    placeholder="(optional) e.g. *.internal,localhost"
-                    value={proxyBypass}
-                    onChange={(e) => setProxyBypass(e.target.value)}
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => saveProxy(true)}>
-                  Remove
-                </Button>
-                <Button onClick={() => saveProxy(false)}>Save</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-          {onDelete && (
-            <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-              <button
-                onClick={() => setDeleteOpen(true)}
-                className="ml-2 text-xs text-red-600 hover:underline"
-              >
-                delete
-              </button>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete &quot;{account.name}&quot;?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This removes the saved Facebook session, target, sources, and
-                    logs for this account. This cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    className="bg-red-600 text-white hover:bg-red-700"
-                    onClick={() => {
-                      setDeleteOpen(false);
-                      onDelete(account.id);
-                    }}
-                  >
-                    Delete
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+    <div className="flex min-w-0 flex-col rounded-[20px] bg-card">
+      {/* Header: name, status line, the one main action. */}
+      <header className="flex flex-wrap items-start justify-between gap-4 p-5">
+        <div className="flex min-w-0 flex-1 basis-64 flex-col gap-1.5">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <input
+              aria-label="Account name"
+              className="min-w-0 flex-1 rounded-md bg-transparent text-base font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              value={account.name}
+              onChange={(e) => onRename(account.id, e.target.value)}
+            />
+            {!status ? null : running ? (
+              <Badge variant="positive">Running</Badge>
+            ) : status.hasSession ? (
+              <Badge variant="neutral">Idle</Badge>
+            ) : (
+              <Badge variant="warning">Needs login</Badge>
+            )}
+          </div>
+          <p
+            className={cn(
+              "text-sm",
+              status && !running && (!status.hasSession || targets.length === 0)
+                ? "text-warning"
+                : "text-muted-foreground",
+            )}
+          >
+            {statusLine}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {running ? (
+            <Button
+              variant="destructive"
+              disabled={busy}
+              onClick={() => post("/api/automation/stop")}
+            >
+              <Square data-icon="inline-start" /> Stop
+            </Button>
+          ) : status && !status.hasSession ? (
+            <Button disabled={busy} onClick={() => post("/api/login")}>
+              <LogIn data-icon="inline-start" /> Log in to Facebook
+            </Button>
+          ) : (
+            <Button
+              disabled={busy || running || !status?.hasSession}
+              onClick={() =>
+                post("/api/automation/start", {
+                  headless: !headed,
+                  speed: fast ? "fast" : "normal",
+                })
+              }
+            >
+              <Play data-icon="inline-start" /> Start
+            </Button>
           )}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={<Button variant="ghost" size="icon" aria-label="Account options" />}
+            >
+              <MoreHorizontal />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuItem disabled={busy} onClick={() => post("/api/login")}>
+                <LogIn /> {status?.hasSession ? "Log in again" : "Log in to Facebook"}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setProxyOpen(true)}>
+                <Globe /> {account.proxy?.server ? "Edit proxy" : "Set proxy"}
+              </DropdownMenuItem>
+              {onDelete && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem variant="destructive" onClick={() => setDeleteOpen(true)}>
+                    <Trash2 /> Delete account
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
 
-      <section className="mb-3 rounded border border-zinc-200 p-3 dark:border-zinc-800">
-        <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">
-          Session
-        </div>
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span>
-            {status?.hasSession
-              ? "Saved Facebook session detected."
-              : "No saved session — click Login to capture one."}
-          </span>
-          <button
-            disabled={busy}
-            onClick={() => post("/api/login")}
-            className="rounded-md bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            Login to Facebook
-          </button>
-        </div>
-      </section>
-
-      <section className="mb-3 rounded border border-zinc-200 p-3 dark:border-zinc-800">
-        <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">
-          Target Pages
-        </div>
-        <p className="mb-2 text-xs text-zinc-500">
-          Each owned Page will follow / like every target listed here.
-        </p>
-        <div className="mb-2 flex gap-2">
-          <input
-            className="flex-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-            placeholder="https://www.facebook.com/..."
-            value={newTarget}
-            onChange={(e) => setNewTarget(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && addTarget()}
-          />
-          <button
-            onClick={addTarget}
-            className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900"
-          >
-            Add
-          </button>
-        </div>
-        <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
-          {(config?.targetUrls ?? []).map((u, i) => (
-            <li key={i} className="flex items-center gap-2 py-1.5">
-              <input
-                className="flex-1 rounded-md border border-zinc-300 bg-white px-3 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
-                value={u}
-                onChange={(e) => updateTargetAt(i, e.target.value)}
-              />
-              <button
-                onClick={() => removeTarget(i)}
-                className="text-xs text-red-600 hover:underline"
-              >
-                remove
-              </button>
-            </li>
-          ))}
-          {(config?.targetUrls ?? []).length === 0 && (
-            <li className="py-1.5 text-xs text-zinc-500">No targets yet.</li>
-          )}
-        </ul>
-      </section>
-
-      <section className="mb-3 rounded border border-zinc-200 p-3 dark:border-zinc-800">
-        <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">
-          Source Pages (optional)
-        </div>
-        <p className="mb-2 text-xs text-zinc-500">
-          Leave empty to auto-discover all owned Pages from this account.
-        </p>
-        <div className="mb-2 flex gap-2">
-          <input
-            className="flex-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-            placeholder="Exact Page name"
-            value={newSource}
-            onChange={(e) => setNewSource(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && addSource()}
-          />
-          <button
-            onClick={addSource}
-            className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900"
-          >
-            Add
-          </button>
-        </div>
-        <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
-          {config?.sources.map((s) => (
-            <li key={s.id} className="flex items-center justify-between py-1.5 text-sm">
-              <span className="truncate">{s.name}</span>
-              <button
-                onClick={() => removeSource(s.id)}
-                className="text-xs text-red-600 hover:underline"
-              >
-                remove
-              </button>
-            </li>
-          ))}
-          {config?.sources.length === 0 && (
-            <li className="py-1.5 text-xs text-zinc-500">No source Pages — will auto-discover.</li>
-          )}
-        </ul>
-      </section>
-
-      <section className="mb-3 flex flex-wrap items-center gap-3">
-        <button
-          disabled={busy || status?.running || !status?.hasSession}
-          onClick={() =>
-            post("/api/automation/start", {
-              headless: !headed,
-              speed: fast ? "fast" : "normal",
-            })
-          }
-          className="rounded-md bg-green-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
-        >
-          Start
-        </button>
-        <button
-          disabled={busy || !status?.running}
-          onClick={() => post("/api/automation/stop")}
-          className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-        >
-          Stop
-        </button>
-        <label className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400">
-          <input
-            type="checkbox"
-            checked={headed}
-            onChange={(e) => setHeaded(e.target.checked)}
-          />
-          Headed
-        </label>
-        <label className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400">
-          <input
-            type="checkbox"
-            checked={fast}
-            onChange={(e) => setFast(e.target.checked)}
-          />
+      {/* Run options */}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-border px-5 py-3.5 text-sm">
+        <label className="flex items-center gap-2">
+          <Switch checked={fast} onCheckedChange={setFast} disabled={running} />
           Fast
         </label>
-      </section>
+        <label className="flex items-center gap-2">
+          <Switch checked={headed} onCheckedChange={setHeaded} disabled={running} />
+          Show browser
+        </label>
+        <span className="ml-auto truncate text-xs text-faint">
+          {account.proxy?.server ? `Proxy ${account.proxy.server}` : "No proxy"}
+        </span>
+      </div>
 
-      <section>
-        <div className="mb-1 flex items-center justify-between">
-          <div className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-            Logs
+      {/* Targets and sources */}
+      <div className="grid border-t border-border md:grid-cols-2">
+        <section className="flex min-w-0 flex-col gap-3 p-5 md:border-r md:border-border">
+          <div className="flex flex-col gap-1">
+            <h3 className="text-sm font-medium">
+              Target Pages <span className="num font-normal text-muted-foreground">{targets.length}</span>
+            </h3>
+            <p className="text-xs text-faint">Each owned Page follows and likes every target here.</p>
           </div>
-          <button
+          <div className="flex gap-2">
+            <Input
+              aria-label="New target Page URL"
+              placeholder="https://www.facebook.com/..."
+              value={newTarget}
+              onChange={(e) => setNewTarget(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addTarget()}
+            />
+            <Button variant="outline" onClick={addTarget} disabled={!newTarget.trim()}>
+              Add
+            </Button>
+          </div>
+          {targets.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No targets yet.</p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {targets.map((u, i) => (
+                <li key={i} className="flex items-center gap-1">
+                  <Input
+                    aria-label={`Target Page ${i + 1}`}
+                    className="h-8 text-xs"
+                    value={u}
+                    onChange={(e) => updateTargetAt(i, e.target.value)}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => removeTarget(i)}
+                    aria-label={`Remove target ${i + 1}`}
+                  >
+                    <X />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="flex min-w-0 flex-col gap-3 border-t border-border p-5 md:border-t-0">
+          <div className="flex flex-col gap-1">
+            <h3 className="text-sm font-medium">
+              Source Pages{" "}
+              <span className="num font-normal text-muted-foreground">{config?.sources.length ?? 0}</span>
+            </h3>
+            <p className="text-xs text-faint">Optional. Leave empty to use every Page this account owns.</p>
+          </div>
+          <div className="flex gap-2">
+            <Input
+              aria-label="New source Page name"
+              placeholder="Exact Page name"
+              value={newSource}
+              onChange={(e) => setNewSource(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addSource()}
+            />
+            <Button variant="outline" onClick={addSource} disabled={!newSource.trim()}>
+              Add
+            </Button>
+          </div>
+          {config?.sources.length ? (
+            <ul className="flex flex-col">
+              {config.sources.map((s) => (
+                <li key={s.id} className="flex items-center justify-between gap-2 py-0.5 text-sm">
+                  <span className="truncate">{s.name}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => removeSource(s.id)}
+                    aria-label={`Remove source ${s.name}`}
+                  >
+                    <X />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">Auto-discovering owned Pages.</p>
+          )}
+        </section>
+      </div>
+
+      {/* Logs */}
+      <section className="flex flex-col gap-3 border-t border-border p-5">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-sm font-medium">
+            Logs <span className="num font-normal text-muted-foreground">{logs.length}</span>
+          </h3>
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => post("/api/logs/clear")}
-            className="text-xs text-zinc-500 hover:text-red-500 hover:underline"
+            disabled={logs.length === 0}
           >
-            clear
-          </button>
+            Clear
+          </Button>
         </div>
         <div
           ref={logBoxRef}
-          className="h-64 overflow-y-auto rounded-md bg-zinc-950 p-2 font-mono text-[11px] leading-tight text-zinc-100"
+          className={cn(
+            "overflow-y-auto rounded-xl bg-black p-3 font-mono text-xs leading-relaxed",
+            logs.length > 0 && "h-64",
+          )}
         >
-          {logs.map((l, i) => (
-            <div
-              key={i}
-              className={
-                l.level === "error"
-                  ? "text-red-400"
-                  : l.level === "warn"
-                    ? "text-amber-300"
-                    : "text-zinc-200"
-              }
-            >
-              <span className="text-zinc-500">
-                {new Date(l.ts).toLocaleTimeString()}{" "}
-              </span>
-              {l.status && <span className="text-zinc-400">[{l.status}] </span>}
-              {l.source && <span className="text-blue-300">{l.source} </span>}
-              {l.target && <span className="text-emerald-300">→ {l.target} </span>}
-              <span>{l.message}</span>
-            </div>
-          ))}
+          {logs.length === 0 ? (
+            <p className="text-faint">No log lines yet.</p>
+          ) : (
+            logs.map((l, i) => (
+              <div
+                key={i}
+                className={cn(
+                  "break-words",
+                  l.level === "error"
+                    ? "text-danger-ink"
+                    : l.level === "warn"
+                      ? "text-warning"
+                      : "text-muted-foreground",
+                )}
+              >
+                <span className="text-faint">{new Date(l.ts).toLocaleTimeString()} </span>
+                {l.status && <span className="text-faint">[{l.status}] </span>}
+                {l.source && <span className="text-white">{l.source} </span>}
+                {l.target && <span className="text-white">→ {l.target} </span>}
+                <span>{l.message}</span>
+              </div>
+            ))
+          )}
         </div>
       </section>
+
+      <Dialog open={proxyOpen} onOpenChange={setProxyOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Proxy for &quot;{account.name}&quot;</DialogTitle>
+            <DialogDescription>
+              All Playwright traffic for this account (login + automation runs)
+              will route through this proxy. Leave server blank and click
+              Remove to clear.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="my-4 grid gap-3">
+            <div className="grid gap-1">
+              <Label htmlFor={`proxy-server-${account.id}`}>Server</Label>
+              <Input
+                id={`proxy-server-${account.id}`}
+                placeholder="http://1.2.3.4:8080  or  socks5://host:1080"
+                value={proxyServer}
+                onChange={(e) => setProxyServer(e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-1">
+                <Label htmlFor={`proxy-user-${account.id}`}>Username</Label>
+                <Input
+                  id={`proxy-user-${account.id}`}
+                  placeholder="(optional)"
+                  value={proxyUser}
+                  onChange={(e) => setProxyUser(e.target.value)}
+                />
+              </div>
+              <div className="grid gap-1">
+                <Label htmlFor={`proxy-pass-${account.id}`}>Password</Label>
+                <Input
+                  id={`proxy-pass-${account.id}`}
+                  type="password"
+                  placeholder="(optional)"
+                  value={proxyPass}
+                  onChange={(e) => setProxyPass(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="grid gap-1">
+              <Label htmlFor={`proxy-bypass-${account.id}`}>Bypass</Label>
+              <Input
+                id={`proxy-bypass-${account.id}`}
+                placeholder="(optional) e.g. *.internal,localhost"
+                value={proxyBypass}
+                onChange={(e) => setProxyBypass(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => saveProxy(true)}>
+              Remove
+            </Button>
+            <Button onClick={() => saveProxy(false)}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {onDelete && (
+        <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete &quot;{account.name}&quot;?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This removes the saved Facebook session, target, sources, and
+                logs for this account. This cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                onClick={() => {
+                  setDeleteOpen(false);
+                  onDelete(account.id);
+                }}
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 }
