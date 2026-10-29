@@ -449,6 +449,7 @@ export function RepostingPanel() {
 
   // queue & run
   const [items, setItems] = useState<QueueItem[]>([blankRow()]);
+  const [bulkTime, setBulkTime] = useState("17:00");
   const [running, setRunning] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [downloadingRow, setDownloadingRow] = useState<number | null>(null);
@@ -1697,6 +1698,32 @@ export function RepostingPanel() {
                           </span>
                         </h2>
                         <div className="flex flex-wrap items-center gap-2">
+                          <input
+                            type="time"
+                            aria-label="Time for every queued video"
+                            value={bulkTime}
+                            onChange={(e) => setBulkTime(e.target.value)}
+                            disabled={running}
+                            className="h-8 rounded-full border border-input bg-black px-3 text-sm"
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={running || !bulkTime || filledItems.length === 0}
+                            onClick={() => {
+                              // Keep each row's date; only swap the HH:MM part.
+                              setItems((arr) =>
+                                arr.map((it) =>
+                                  it.url.trim() && /^\d{4}-\d{2}-\d{2}T/.test(it.scheduledAt)
+                                    ? { ...it, scheduledAt: `${it.scheduledAt.slice(0, 11)}${bulkTime}` }
+                                    : it,
+                                ),
+                              );
+                              toast.success(`Set ${filledItems.length} video${filledItems.length === 1 ? "" : "s"} to ${bulkTime}`);
+                            }}
+                          >
+                            Set all times
+                          </Button>
                           {flow === "yt-to-fb" && (
                             <span className="num text-xs text-muted-foreground">
                               {captionedCount} of {ytQueueUrls.length} captioned
