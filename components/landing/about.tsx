@@ -37,7 +37,7 @@ export function About() {
           Five tools on one machine.
         </h2>
         <p data-reveal className="mt-6 max-w-md text-lg leading-relaxed text-white">
-          Lifty runs on your own computer or a VPS, for one operator. The queue, the schedule history and
+          Flick runs on your own computer or a VPS, for one operator. The queue, the schedule history and
           the Facebook sessions stay in a folder on that host.
         </p>
       </div>

@@ -1,4 +1,4 @@
-# Lifty app-screen style (true-black flat)
+# Flick app-screen style (true-black flat)
 
 Reference implementation: `components/dashboard/RepostingPanel.tsx` (read its JSX from `return (` down) and
 `components/dashboard/RepostPipeline.tsx`. Match them.

@@ -15,9 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Lifty",
+  title: "Flick",
   description:
-    "Lift every Page, on autopilot. Lifty orchestrates Facebook engagement across your accounts from one quiet, visual control room.",
+    "Lift every Page, on autopilot. Flick orchestrates Facebook engagement across your accounts from one quiet, visual control room.",
 };
 
 export default function RootLayout({
