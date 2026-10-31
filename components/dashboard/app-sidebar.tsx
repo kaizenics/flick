@@ -100,7 +100,7 @@ export function AppSidebar({
             </div>
             <div className="flex min-w-0 flex-col gap-0.5 leading-none">
               <span className="truncate font-semibold tracking-tight">
-                Lifty
+                Flick
               </span>
               <span className="truncate text-xs text-faint">
                 Local automation

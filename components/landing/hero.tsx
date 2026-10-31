@@ -40,7 +40,7 @@ export function Hero() {
     <section className="px-5 pb-24 md:px-8 md:pb-40">
       <nav className="flex items-center justify-between py-6" aria-label="Main">
         <Link href="/" className="text-lg font-semibold tracking-tight">
-          Lifty
+          Flick
         </Link>
         <div className="flex items-center gap-6 text-[15px] md:gap-8">
           <Link href="/reposting" className="hidden text-muted-foreground transition-colors hover:text-white sm:inline">
@@ -63,11 +63,11 @@ export function Hero() {
           data-reveal
           className="text-[2.1rem] leading-[0.95] font-semibold tracking-[-0.04em] text-balance sm:text-6xl lg:col-span-8 lg:text-[6.4vw]"
         >
-          Lifty reposts Shorts to Facebook.
+          Flick reposts Shorts to Facebook.
         </h1>
         <div data-reveal className="flex flex-col items-start gap-6 lg:col-span-4 lg:pb-3">
           <p className="max-w-md text-lg leading-relaxed text-white">
-            Queue YouTube Shorts, TikToks or Reels. Lifty downloads each one, writes the caption and
+            Queue YouTube Shorts, TikToks or Reels. Flick downloads each one, writes the caption and
             schedules it to your Facebook Page or YouTube channel.
           </p>
           <Link

@@ -13,7 +13,7 @@ export function Footer() {
     <footer className="bg-card px-5 pt-16 pb-8 md:px-8 md:pt-24">
       <div className="flex flex-col justify-between gap-8 md:flex-row md:items-end">
         <p data-reveal className="max-w-md text-2xl leading-snug font-medium tracking-tight md:text-3xl">
-          Queue it once. Lifty posts it on time.
+          Queue it once. Flick posts it on time.
         </p>
         <ul data-reveal className="flex flex-wrap gap-x-6 gap-y-2 text-base">
           {links.map((l) => (
@@ -30,9 +30,9 @@ export function Footer() {
         aria-hidden
         className="mt-16 text-[26vw] leading-[0.78] font-semibold tracking-[-0.06em] select-none md:mt-24"
       >
-        Lifty
+        Flick
       </p>
-      <p className="mt-8 text-sm text-muted-foreground">© {new Date().getFullYear()} Lifty</p>
+      <p className="mt-8 text-sm text-muted-foreground">© {new Date().getFullYear()} Flick</p>
     </footer>
   );
 }

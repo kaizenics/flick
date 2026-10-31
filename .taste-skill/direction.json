@@ -5,7 +5,7 @@
  "seed": 394206843,
  "input": {
   "kind": "creator",
-  "brief": "Lifty: local automation suite that reposts YouTube/TikTok/Instagram shorts to Facebook Pages and YouTube on a schedule, with AI caption preflight, scraping and video editor",
+  "brief": "Flick: local automation suite that reposts YouTube/TikTok/Instagram shorts to Facebook Pages and YouTube on a schedule, with AI caption preflight, scraping and video editor",
   "theme": "dark",
   "screens": [
    "list",

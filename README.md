@@ -1,4 +1,4 @@
-# Lifty
+# Flick
 
 Self-hosted automation for Facebook Page operations — runs on your own
 Linux machine or VPS, not a serverless platform.

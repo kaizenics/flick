@@ -1,6 +1,6 @@
 const items = [
   {
-    q: "What does Lifty actually do?",
+    q: "What does Flick actually do?",
     a: "It takes short videos from YouTube Shorts, TikTok or Instagram Reels, downloads them, writes a caption and schedules them to a Facebook Page or a YouTube channel. Around that sit Page engagement, a visual flow builder, a scraper for viral candidates and a video editor.",
   },
   {
@@ -13,7 +13,7 @@ const items = [
   },
   {
     q: "Where is my data kept?",
-    a: "In the data folder on the host: the reposting setup, schedule history and Facebook session state. API keys are stored there in plain text, because Lifty assumes a single operator on a machine they control.",
+    a: "In the data folder on the host: the reposting setup, schedule history and Facebook session state. API keys are stored there in plain text, because Flick assumes a single operator on a machine they control.",
   },
   {
     q: "Posting worked yesterday and stopped today. Why?",
