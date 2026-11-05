@@ -11,6 +11,7 @@ import {
   Search,
   Archive,
   Clapperboard,
+  Paintbrush,
 } from "lucide-react";
 
 import {
@@ -39,6 +40,7 @@ const navTools = [
   { title: "Automation Flow", href: "/flow", icon: Workflow, available: true },
   { title: "Reposting", href: "/reposting", icon: Repeat2, available: true },
   { title: "Video Editor", href: "/video-editor", icon: Clapperboard, available: true },
+  { title: "Design Studio", href: "/design-studio", icon: Paintbrush, available: true },
   { title: "Scraping", href: "/scraping", icon: Search, available: true },
   { title: "Archives", href: "/archives", icon: Archive, available: true },
 ];
